@@ -28,7 +28,7 @@ import * as os from 'os';
 import { randomUUID } from 'crypto';
 
 export const TELEMETRY_ENDPOINT = 'https://telemetry.getcodegraph.com/v1/events';
-export const TELEMETRY_DOCS = 'https://github.com/colbymchenry/codegraph/blob/main/TELEMETRY.md';
+export const TELEMETRY_DOCS = 'https://github.com/nastech-ai/nascodegraph/blob/main/TELEMETRY.md';
 
 // v2: dropped the `sqlite_backend` field from the `index` event — node:sqlite is
 // now the only backend (the better-sqlite3-native / wasm-fallback split is gone),
