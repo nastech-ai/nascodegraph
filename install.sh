@@ -76,7 +76,8 @@ else
     echo "nascodegraph: npm not found. Install Node.js first: https://nodejs.org" >&2
     exit 1
   fi
-  npm install -g @nastechai/nascodegraph@"$version" || npm install -g @nastechai/nascodegraph
+  npm_ver="${version#v}"
+  npm install -g @nastechai/nascodegraph@"$npm_ver" || npm install -g @nastechai/nascodegraph
   echo "Installed via npm."
 fi
 
