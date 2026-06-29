@@ -1,6 +1,6 @@
 {
   "name": "@nastechai/nascodegraph",
-  "version": "1.1.7",
+  "version": "1.1.8",
   "description": "NasCodeGraph — Supercharge NasTech Agent with semantic code intelligence — surgical context, fewer tool calls, faster answers. 100% local.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
