@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * CodeGraph preuninstall cleanup script
+ * NasCodeGraph preuninstall cleanup script
  *
- * Runs automatically when `npm uninstall -g @nastech-ai/nascodegraph`
+ * Runs automatically when `npm uninstall -g @nastech-ai/nasnascodegraph`
  * is called. Loops over every known agent target's `uninstall(loc)`
  * for the global location only — local-location entries live inside
  * project working trees and aren't ours to nuke at npm-uninstall

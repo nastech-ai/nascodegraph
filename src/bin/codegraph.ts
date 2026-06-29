@@ -1,32 +1,32 @@
 #!/usr/bin/env node
 /**
- * CodeGraph CLI
+ * NasCodeGraph CLI
  *
- * Command-line interface for CodeGraph code intelligence.
+ * Command-line interface for NasCodeGraph code intelligence.
  *
  * Usage:
- *   codegraph                    Run interactive installer (when no args)
- *   codegraph install            Run interactive installer
- *   codegraph uninstall          Remove CodeGraph from your agents
- *   codegraph init [path]        Initialize CodeGraph in a project
- *   codegraph uninit [path]      Remove CodeGraph from a project
- *   codegraph index [path]       Index all files in the project
- *   codegraph sync [path]        Sync changes since last index
- *   codegraph status [path]      Show index status
- *   codegraph query <search>     Search for symbols
- *   codegraph files [options]    Show project file structure
- *   codegraph context <task>     Build context for a task
- *   codegraph callers <symbol>   Find what calls a function/method
- *   codegraph callees <symbol>   Find what a function/method calls
- *   codegraph impact <symbol>    Analyze what code is affected by changing a symbol
- *   codegraph affected [files]   Find test files affected by changes
- *   codegraph upgrade [version]  Update CodeGraph to the latest release
+ *   nascodegraph                    Run interactive installer (when no args)
+ *   nascodegraph install            Run interactive installer
+ *   nascodegraph uninstall          Remove NasCodeGraph from your agents
+ *   nascodegraph init [path]        Initialize NasCodeGraph in a project
+ *   nascodegraph uninit [path]      Remove NasCodeGraph from a project
+ *   nascodegraph index [path]       Index all files in the project
+ *   nascodegraph sync [path]        Sync changes since last index
+ *   nascodegraph status [path]      Show index status
+ *   nascodegraph query <search>     Search for symbols
+ *   nascodegraph files [options]    Show project file structure
+ *   nascodegraph context <task>     Build context for a task
+ *   nascodegraph callers <symbol>   Find what calls a function/method
+ *   nascodegraph callees <symbol>   Find what a function/method calls
+ *   nascodegraph impact <symbol>    Analyze what code is affected by changing a symbol
+ *   nascodegraph affected [files]   Find test files affected by changes
+ *   nascodegraph upgrade [version]  Update NasCodeGraph to the latest release
  */
 
 import { Command } from 'commander';
 import * as path from 'path';
 import * as fs from 'fs';
-import { getCodeGraphDir, isInitialized, unsafeIndexRootReason, findNearestCodeGraphRoot, planFrontload, hasStructuralKeyword, extractCodeTokens } from '../directory';
+import { getNasCodeGraphDir, isInitialized, unsafeIndexRootReason, findNearestNasCodeGraphRoot, planFrontload, hasStructuralKeyword, extractCodeTokens } from '../directory';
 import { detectWorktreeIndexMismatch, worktreeMismatchWarning } from '../sync/worktree';
 import { createShimmerProgress } from '../ui/shimmer-progress';
 import { getGlyphs } from '../ui/glyphs';
@@ -38,16 +38,16 @@ import { installCommandSupervision } from './command-supervision';
 import { EXTRACTION_VERSION } from '../extraction/extraction-version';
 import { getTelemetry, TELEMETRY_DOCS, recordIndexEvent } from '../telemetry';
 
-// Lazy-load heavy modules (CodeGraph, runInstaller) to keep CLI startup fast.
-async function loadCodeGraph(): Promise<typeof import('../index')> {
+// Lazy-load heavy modules (NasCodeGraph, runInstaller) to keep CLI startup fast.
+async function loadNasCodeGraph(): Promise<typeof import('../index')> {
   try {
     return await import('../index');
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error(`\x1b[31m${getGlyphs().err}\x1b[0m Failed to load CodeGraph modules.`);
+    console.error(`\x1b[31m${getGlyphs().err}\x1b[0m Failed to load NasCodeGraph modules.`);
     console.error(`\n  Node: ${process.version}  Platform: ${process.platform} ${process.arch}`);
     console.error(`\n  Error: ${msg}`);
-    console.error('\n  Try reinstalling with: npm install -g @nastech-ai/nascodegraph\n');
+    console.error('\n  Try reinstalling with: npm install -g @nastech-ai/nasnascodegraph\n');
     process.exit(1);
   }
 }
@@ -58,7 +58,7 @@ async function loadCodeGraph(): Promise<typeof import('../index')> {
 const importESM = new Function('specifier', 'return import(specifier)') as
   (specifier: string) => Promise<typeof import('@clack/prompts')>;
 
-// Block CodeGraph on Node.js 25.x — V8's turboshaft WASM JIT has a Zone
+// Block NasCodeGraph on Node.js 25.x — V8's turboshaft WASM JIT has a Zone
 // allocator bug that reliably crashes when compiling tree-sitter
 // grammars (see #54, #81, #140). The previous behaviour was a soft
 // console.warn that scrolls off-screen before the OOM crash 30 seconds
@@ -69,7 +69,7 @@ const nodeVersion = process.versions.node;
 const nodeMajor = parseInt(nodeVersion.split('.')[0] ?? '0', 10);
 if (nodeMajor >= 25) {
   process.stderr.write(buildNode25BlockBanner(nodeVersion) + '\n');
-  if (!process.env.CODEGRAPH_ALLOW_UNSAFE_NODE) {
+  if (!process.env.NASTECHGRAPH_ALLOW_UNSAFE_NODE) {
     process.exit(1);
   }
   // Override active — banner shown for visibility, continuing.
@@ -79,7 +79,7 @@ if (nodeMajor >= 25) {
 // unsupported versions. Mirrors the 25+ block above. See package.json `engines`.
 if (nodeMajor < MIN_NODE_MAJOR) {
   process.stderr.write(buildNodeTooOldBanner(nodeVersion) + '\n');
-  if (!process.env.CODEGRAPH_ALLOW_UNSAFE_NODE) {
+  if (!process.env.NASTECHGRAPH_ALLOW_UNSAFE_NODE) {
     process.exit(1);
   }
   // Override active — banner shown for visibility, continuing.
@@ -125,8 +125,8 @@ const packageJson = JSON.parse(
 // `--version` and `-V`; intercept the spellings it can't — lowercase `-v` and
 // single-dash `-version` — before any parsing. (commander's version short flag
 // is the capital `-V`, and its parser rejects a multi-character single-dash
-// flag.) The bare `codegraph version` subcommand is registered further down so
-// the affordance also shows up in `codegraph --help`.
+// flag.) The bare `nascodegraph version` subcommand is registered further down so
+// the affordance also shows up in `nascodegraph --help`.
 const firstArg = process.argv[2];
 if (firstArg === '-v' || firstArg === '-version') {
   console.log(packageJson.version);
@@ -163,7 +163,7 @@ const chalk = {
 };
 
 program
-  .name('codegraph')
+  .name('nascodegraph')
   .description('Code intelligence and knowledge graph for any codebase')
   .version(packageJson.version);
 
@@ -178,7 +178,7 @@ const TELEMETRY_FLUSH_COMMANDS = new Set(['init', 'uninit', 'index', 'sync', 'up
 program.hook('preAction', (_thisCommand, actionCommand) => {
   try {
     // The detached daemon re-invokes `serve --mcp` internally — not a user action.
-    if (process.env.CODEGRAPH_DAEMON_INTERNAL) return;
+    if (process.env.NASTECHGRAPH_DAEMON_INTERNAL) return;
     const name = actionCommand.name();
     if (name === 'telemetry') return; // managing telemetry is not usage
     getTelemetry().recordUsage('cli_command', name, true);
@@ -194,19 +194,19 @@ program.hook('preAction', (_thisCommand, actionCommand) => {
 
 /**
  * Resolve project path from argument or current directory
- * Walks up parent directories to find nearest initialized CodeGraph project
- * (must have .codegraph/codegraph.db, not just .codegraph/lessons.db)
+ * Walks up parent directories to find nearest initialized NasCodeGraph project
+ * (must have .nascodegraph/nascodegraph.db, not just .nascodegraph/lessons.db)
  */
 function resolveProjectPath(pathArg?: string): string {
   const absolutePath = path.resolve(pathArg || process.cwd());
 
-  // If exact path is initialized (has codegraph.db), use it
+  // If exact path is initialized (has nascodegraph.db), use it
   if (isInitialized(absolutePath)) {
     return absolutePath;
   }
 
-  // Walk up to find nearest parent with CodeGraph initialized
-  // Note: findNearestCodeGraphRoot finds any .codegraph folder, but we need one with codegraph.db
+  // Walk up to find nearest parent with NasCodeGraph initialized
+  // Note: findNearestNasCodeGraphRoot finds any .nascodegraph folder, but we need one with nascodegraph.db
   let current = absolutePath;
   const root = path.parse(current).root;
 
@@ -384,14 +384,14 @@ function printIndexResult(clack: typeof import('@clack/prompts'), result: IndexR
 
     if (projectPath) {
       writeErrorLog(projectPath, result.errors);
-      clack.log.info('See .codegraph/errors.log for details');
+      clack.log.info('See .nascodegraph/errors.log for details');
     }
 
     if (result.filesIndexed > 0) {
       clack.log.info(`The index is fully usable ${getGlyphs().dash} only the failed files are missing.`);
     }
   } else if (projectPath) {
-    const logPath = path.join(getCodeGraphDir(projectPath), 'errors.log');
+    const logPath = path.join(getNasCodeGraphDir(projectPath), 'errors.log');
     if (fs.existsSync(logPath)) {
       fs.unlinkSync(logPath);
     }
@@ -399,10 +399,10 @@ function printIndexResult(clack: typeof import('@clack/prompts'), result: IndexR
 }
 
 /**
- * Write detailed error log to .codegraph/errors.log
+ * Write detailed error log to .nascodegraph/errors.log
  */
 function writeErrorLog(projectPath: string, errors: Array<{ message: string; filePath?: string; severity: string; code?: string }>): void {
-  const cgDir = getCodeGraphDir(projectPath);
+  const cgDir = getNasCodeGraphDir(projectPath);
   if (!fs.existsSync(cgDir)) return;
 
   const logPath = path.join(cgDir, 'errors.log');
@@ -426,7 +426,7 @@ function writeErrorLog(projectPath: string, errors: Array<{ message: string; fil
   }
 
   const lines: string[] = [
-    `CodeGraph Error Log - ${new Date().toISOString()}`,
+    `NasCodeGraph Error Log - ${new Date().toISOString()}`,
     `${errorsByFile.size} files with errors`,
     '',
   ];
@@ -462,11 +462,11 @@ async function recordIndexTelemetry(
 // =============================================================================
 
 /**
- * codegraph init [path]
+ * nascodegraph init [path]
  */
 program
   .command('init [path]')
-  .description('Initialize CodeGraph in a project directory and build the initial index')
+  .description('Initialize NasCodeGraph in a project directory and build the initial index')
   .option('-i, --index', 'Deprecated: indexing now runs by default; flag accepted for backward compatibility')
   .option('-f, --force', 'Initialize even if the path looks like your home directory or a filesystem root')
   .option('-v, --verbose', 'Show detailed worker lifecycle and memory info')
@@ -474,7 +474,7 @@ program
     const projectPath = path.resolve(pathArg || process.cwd());
     const clack = await importESM('@clack/prompts');
 
-    clack.intro('Initializing CodeGraph');
+    clack.intro('Initializing NasCodeGraph');
 
     try {
       // Refuse to index your home directory / a filesystem root — it pulls in
@@ -491,7 +491,7 @@ program
 
       if (isInitialized(projectPath)) {
         clack.log.warn(`Already initialized in ${projectPath}`);
-        clack.log.info('Use "codegraph index" to re-index or "codegraph sync" to update');
+        clack.log.info('Use "nascodegraph index" to re-index or "nascodegraph sync" to update');
         try {
           const { offerWatchFallback } = await import('../installer');
           await offerWatchFallback(clack, projectPath);
@@ -500,8 +500,8 @@ program
         return;
       }
 
-      const { default: CodeGraph } = await loadCodeGraph();
-      const cg = await CodeGraph.init(projectPath, { index: false });
+      const { default: NasCodeGraph } = await loadNasCodeGraph();
+      const cg = await NasCodeGraph.init(projectPath, { index: false });
       clack.log.success(`Initialized in ${projectPath}`);
 
       // Indexing runs by default now. The legacy -i/--index flag is still
@@ -544,18 +544,18 @@ program
   });
 
 /**
- * codegraph uninit [path]
+ * nascodegraph uninit [path]
  */
 program
   .command('uninit [path]')
-  .description('Remove CodeGraph from a project (deletes .codegraph/ directory)')
+  .description('Remove NasCodeGraph from a project (deletes .nascodegraph/ directory)')
   .option('-f, --force', 'Skip confirmation prompt')
   .action(async (pathArg: string | undefined, options: { force?: boolean }) => {
     const projectPath = resolveProjectPath(pathArg);
 
     try {
       if (!isInitialized(projectPath)) {
-        warn(`CodeGraph is not initialized in ${projectPath}`);
+        warn(`NasCodeGraph is not initialized in ${projectPath}`);
         return;
       }
 
@@ -565,7 +565,7 @@ program
         const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
         const answer = await new Promise<string>((resolve) => {
           rl.question(
-            chalk.yellow(`${getGlyphs().warn} This will permanently delete all CodeGraph data. Continue? (y/N) `),
+            chalk.yellow(`${getGlyphs().warn} This will permanently delete all NasCodeGraph data. Continue? (y/N) `),
             resolve
           );
         });
@@ -577,8 +577,8 @@ program
         }
       }
 
-      const { default: CodeGraph } = await loadCodeGraph();
-      const cg = CodeGraph.openSync(projectPath);
+      const { default: NasCodeGraph } = await loadNasCodeGraph();
+      const cg = NasCodeGraph.openSync(projectPath);
       cg.uninitialize();
 
       // Clean up any git sync hooks we installed (no-op if none / not a repo).
@@ -590,7 +590,7 @@ program
         }
       } catch { /* non-fatal */ }
 
-      success(`Removed CodeGraph from ${projectPath}`);
+      success(`Removed NasCodeGraph from ${projectPath}`);
 
       // Churn signal — and flush now, since after an uninit there may be no
       // "next run" to deliver it.
@@ -605,7 +605,7 @@ program
   });
 
 /**
- * codegraph index [path]
+ * nascodegraph index [path]
  */
 program
   .command('index [path]')
@@ -626,13 +626,13 @@ program
       }
 
       if (!isInitialized(projectPath)) {
-        error(`CodeGraph not initialized in ${projectPath}`);
-        info('Run "codegraph init" first');
+        error(`NasCodeGraph not initialized in ${projectPath}`);
+        info('Run "nascodegraph init" first');
         process.exit(1);
       }
 
-      const { default: CodeGraph } = await loadCodeGraph();
-      const cg = await CodeGraph.open(projectPath);
+      const { default: NasCodeGraph } = await loadNasCodeGraph();
+      const cg = await NasCodeGraph.open(projectPath);
 
       // Supervise the indexer: self-terminate if orphaned (parent shim killed)
       // or if the main thread wedges — neither was guarded on this path (#999).
@@ -693,7 +693,7 @@ program
   });
 
 /**
- * codegraph sync [path]
+ * nascodegraph sync [path]
  */
 program
   .command('sync [path]')
@@ -705,13 +705,13 @@ program
     try {
       if (!isInitialized(projectPath)) {
         if (!options.quiet) {
-          error(`CodeGraph not initialized in ${projectPath}`);
+          error(`NasCodeGraph not initialized in ${projectPath}`);
         }
         process.exit(1);
       }
 
-      const { default: CodeGraph } = await loadCodeGraph();
-      const cg = await CodeGraph.open(projectPath);
+      const { default: NasCodeGraph } = await loadNasCodeGraph();
+      const cg = await NasCodeGraph.open(projectPath);
 
       if (options.quiet) {
         await cg.sync();
@@ -720,7 +720,7 @@ program
       }
 
       const clack = await importESM('@clack/prompts');
-      clack.intro('Syncing CodeGraph');
+      clack.intro('Syncing NasCodeGraph');
 
       process.stdout.write(`${colors.dim}${getGlyphs().rail}${colors.reset}\n`);
       const progress = createShimmerProgress();
@@ -755,7 +755,7 @@ program
   });
 
 /**
- * codegraph status [path]
+ * nascodegraph status [path]
  */
 program
   .command('status [path]')
@@ -776,20 +776,20 @@ program
             initialized: false,
             version: packageJson.version,
             projectPath,
-            indexPath: getCodeGraphDir(projectPath),
+            indexPath: getNasCodeGraphDir(projectPath),
             lastIndexed: null,
           }));
           return;
         }
-        console.log(chalk.bold('\nCodeGraph Status\n'));
+        console.log(chalk.bold('\nNasCodeGraph Status\n'));
         info(`Project: ${projectPath}`);
         warn('Not initialized');
-        info('Run "codegraph init" to initialize');
+        info('Run "nascodegraph init" to initialize');
         return;
       }
 
-      const { default: CodeGraph } = await loadCodeGraph();
-      const cg = await CodeGraph.open(projectPath);
+      const { default: NasCodeGraph } = await loadNasCodeGraph();
+      const cg = await NasCodeGraph.open(projectPath);
       const stats = cg.getStats();
       const changes = cg.getChangedFiles();
       const backend = cg.getBackend();
@@ -805,7 +805,7 @@ program
           initialized: true,
           version: packageJson.version,
           projectPath,
-          indexPath: getCodeGraphDir(projectPath),
+          indexPath: getNasCodeGraphDir(projectPath),
           lastIndexed: lastIndexedMs != null ? new Date(lastIndexedMs).toISOString() : null,
           fileCount: stats.fileCount,
           nodeCount: stats.nodeCount,
@@ -834,7 +834,7 @@ program
         return;
       }
 
-      console.log(chalk.bold('\nCodeGraph Status\n'));
+      console.log(chalk.bold('\nNasCodeGraph Status\n'));
 
       // Project info
       console.log(chalk.cyan('Project:'), projectPath);
@@ -896,7 +896,7 @@ program
         if (changes.removed.length > 0) {
           console.log(`  Removed:   ${changes.removed.length} files`);
         }
-        info('Run "codegraph sync" to update the index');
+        info('Run "nascodegraph sync" to update the index');
       } else {
         success('Index is up to date');
       }
@@ -907,7 +907,7 @@ program
       if (reindexRecommended) {
         const builtWith = buildInfo.version ? `v${buildInfo.version.replace(/^v/, '')}` : 'an earlier version';
         warn(`Index was built by ${builtWith}; re-index to pick up this engine's improvements.`);
-        info('Run "codegraph index" (full rebuild) or "codegraph sync"');
+        info('Run "nascodegraph index" (full rebuild) or "nascodegraph sync"');
         console.log();
       }
 
@@ -919,7 +919,7 @@ program
   });
 
 /**
- * codegraph query <search>
+ * nascodegraph query <search>
  */
 program
   .command('query <search>')
@@ -933,12 +933,12 @@ program
 
     try {
       if (!isInitialized(projectPath)) {
-        error(`CodeGraph not initialized in ${projectPath}`);
+        error(`NasCodeGraph not initialized in ${projectPath}`);
         process.exit(1);
       }
 
-      const { default: CodeGraph } = await loadCodeGraph();
-      const cg = await CodeGraph.open(projectPath);
+      const { default: NasCodeGraph } = await loadNasCodeGraph();
+      const cg = await NasCodeGraph.open(projectPath);
 
       const limit = parseInt(options.limit || '10', 10);
       const rawResults = cg.searchNodes(search, {
@@ -994,9 +994,9 @@ program
   });
 
 /**
- * codegraph explore <query...>
+ * nascodegraph explore <query...>
  *
- * The CLI face of the MCP codegraph_explore tool — same handler, same
+ * The CLI face of the MCP nascodegraph_explore tool — same handler, same
  * output (source of the relevant symbols grouped by file + the call path
  * among them). Exists so agents WITHOUT the MCP tools — Task-tool
  * subagents (which don't inherit MCP tools, #704) and non-MCP harnesses —
@@ -1004,7 +1004,7 @@ program
  */
 program
   .command('explore <query...>')
-  .description('Explore an area: relevant symbols\' source + call paths in one shot (same output as the codegraph_explore MCP tool)')
+  .description('Explore an area: relevant symbols\' source + call paths in one shot (same output as the nascodegraph_explore MCP tool)')
   .option('-p, --path <path>', 'Project path')
   .option('--max-files <number>', 'Maximum number of files to include source from')
   .action(async (queryParts: string[], options: { path?: string; maxFiles?: string }) => {
@@ -1012,18 +1012,18 @@ program
 
     try {
       if (!isInitialized(projectPath)) {
-        error(`CodeGraph isn't available here — no .codegraph/ index exists in ${projectPath}. If you are an AI agent: continue with your usual tools; indexing is the user's decision, do not run it yourself. (The project owner can enable CodeGraph with 'codegraph init'.)`);
+        error(`NasCodeGraph isn't available here — no .nascodegraph/ index exists in ${projectPath}. If you are an AI agent: continue with your usual tools; indexing is the user's decision, do not run it yourself. (The project owner can enable NasCodeGraph with 'nascodegraph init'.)`);
         process.exit(1);
       }
 
-      const { default: CodeGraph } = await loadCodeGraph();
-      const cg = await CodeGraph.open(projectPath);
+      const { default: NasCodeGraph } = await loadNasCodeGraph();
+      const cg = await NasCodeGraph.open(projectPath);
       const { ToolHandler } = await import('../mcp/tools');
       const handler = new ToolHandler(cg);
 
       const args: Record<string, unknown> = { query: queryParts.join(' ') };
       if (options.maxFiles) args.maxFiles = parseInt(options.maxFiles, 10);
-      const result = await handler.execute('codegraph_explore', args);
+      const result = await handler.execute('nascodegraph_explore', args);
 
       console.log(result.content[0]?.text ?? '');
       cg.destroy();
@@ -1035,13 +1035,13 @@ program
   });
 
 /**
- * codegraph prompt-hook  (hidden)
+ * nascodegraph prompt-hook  (hidden)
  *
  * A Claude Code `UserPromptSubmit` hook entry point. Reads `{prompt, cwd}` JSON
- * on stdin; for a structural/flow/impact prompt it runs `codegraph_explore` on
+ * on stdin; for a structural/flow/impact prompt it runs `nascodegraph_explore` on
  * the indexed project and prints the result to stdout, which Claude injects into
  * the agent's context — so the agent's reflex grep/read has nothing left to find
- * and reliably uses CodeGraph (the adoption problem). Installed by the installer
+ * and reliably uses NasCodeGraph (the adoption problem). Installed by the installer
  * into Claude's settings.json (opt-in, default-yes).
  *
  * LOAD-BEARING: this must NEVER break the user's prompt. Every failure path —
@@ -1050,12 +1050,12 @@ program
  */
 program
   .command('prompt-hook', { hidden: true })
-  .description('Claude UserPromptSubmit hook: inject CodeGraph context for structural prompts (reads {prompt,cwd} JSON on stdin)')
+  .description('Claude UserPromptSubmit hook: inject NasCodeGraph context for structural prompts (reads {prompt,cwd} JSON on stdin)')
   .action(async () => {
     try {
       // Kill-switch: lets a user disable the nudge without uninstalling /
       // editing settings.json (CI, low-power machines, personal preference).
-      if (process.env.CODEGRAPH_NO_PROMPT_HOOK === '1' || process.env.CODEGRAPH_PROMPT_HOOK === '0') return;
+      if (process.env.NASTECHGRAPH_NO_PROMPT_HOOK === '1' || process.env.NASTECHGRAPH_PROMPT_HOOK === '0') return;
       if (process.stdin.isTTY) return; // invoked by hand, no piped payload
 
       const raw = await new Promise<string>((resolve) => {
@@ -1091,14 +1091,14 @@ program
       if (!plan.exploreRoot && plan.nudgeProjects.length === 0) return; // nothing reachable — the agent's normal tools apply
 
       // A "pass projectPath" line for indexed sub-projects we did NOT front-load.
-      // Follow-up codegraph_explore calls against a sub-project (cwd isn't its
+      // Follow-up nascodegraph_explore calls against a sub-project (cwd isn't its
       // index root) need an explicit projectPath, so spell it out.
       const nudge = (projects: string[], lead: string): string =>
         `${lead}\n${projects.map((p) => `  - projectPath: "${p}"`).join('\n')}\n`;
 
       if (plan.exploreRoot) {
-        const { default: CodeGraph } = await loadCodeGraph();
-        const cg = await CodeGraph.open(plan.exploreRoot);
+        const { default: NasCodeGraph } = await loadNasCodeGraph();
+        const cg = await NasCodeGraph.open(plan.exploreRoot);
         try {
           // Code-token-only prompt: require that at least one token is a REAL symbol
           // in THIS index before front-loading. Without it, a brand name or common
@@ -1108,21 +1108,21 @@ program
           if (!keyworded && !codeTokens.some((t) => cg.getNodesByName(t).length > 0)) return;
           const { ToolHandler } = await import('../mcp/tools');
           const handler = new ToolHandler(cg);
-          const result = await handler.execute('codegraph_explore', { query: prompt });
+          const result = await handler.execute('nascodegraph_explore', { query: prompt });
           const text = result.content[0]?.text ?? '';
           if (!result.isError && text.trim()) {
             // Cap the injection so a large-repo explore can't flood the prompt.
             const MAX = 16000;
-            const body = text.length > MAX ? `${text.slice(0, MAX)}\n…(truncated; call codegraph_explore for the rest)` : text;
+            const body = text.length > MAX ? `${text.slice(0, MAX)}\n…(truncated; call nascodegraph_explore for the rest)` : text;
             // For a front-loaded SUB-project, a follow-up explore needs its path.
             const more = plan.viaSubScan
-              ? `call codegraph_explore with projectPath: "${plan.exploreRoot}" for more`
-              : 'call codegraph_explore for more';
+              ? `call nascodegraph_explore with projectPath: "${plan.exploreRoot}" for more`
+              : 'call nascodegraph_explore for more';
             const others = plan.nudgeProjects.length
               ? `\n${nudge(plan.nudgeProjects, 'Other indexed projects in this workspace — pass projectPath to query them:')}`
               : '';
             process.stdout.write(
-              `<codegraph_context note="Structural context from CodeGraph for this prompt — treat returned source as already read; ${more}.">\n${body}${others}\n</codegraph_context>\n`,
+              `<nascodegraph_context note="Structural context from NasCodeGraph for this prompt — treat returned source as already read; ${more}.">\n${body}${others}\n</nascodegraph_context>\n`,
             );
           }
         } finally {
@@ -1132,9 +1132,9 @@ program
         // Several indexed sub-projects, none a clear match — don't guess; tell
         // the agent they exist and how to query one.
         process.stdout.write(
-          `<codegraph_context note="CodeGraph is available for this workspace's indexed sub-projects — query one by passing projectPath to codegraph_explore.">\n` +
-          nudge(plan.nudgeProjects, "This workspace's CodeGraph indexes live in sub-projects. To use CodeGraph, call codegraph_explore with the projectPath of the relevant one:") +
-          `</codegraph_context>\n`,
+          `<nascodegraph_context note="NasCodeGraph is available for this workspace's indexed sub-projects — query one by passing projectPath to nascodegraph_explore.">\n` +
+          nudge(plan.nudgeProjects, "This workspace's NasCodeGraph indexes live in sub-projects. To use NasCodeGraph, call nascodegraph_explore with the projectPath of the relevant one:") +
+          `</nascodegraph_context>\n`,
         );
       }
     } catch {
@@ -1143,18 +1143,18 @@ program
   });
 
 /**
- * codegraph node [name]
+ * nascodegraph node [name]
  *
- * The CLI face of the MCP codegraph_node tool: one symbol's source +
+ * The CLI face of the MCP nascodegraph_node tool: one symbol's source +
  * caller/callee trail, or a whole file with line numbers + dependents
  * (Read-parity). Same subagent/non-MCP rationale as `explore`.
  *
  * `name` is OPTIONAL because `--file` (file-read mode) carries no symbol —
- * a required `<name>` made `codegraph node -f <file>` unreachable (#1044).
+ * a required `<name>` made `nascodegraph node -f <file>` unreachable (#1044).
  */
 program
   .command('node [name]')
-  .description('One symbol\'s source + caller/callee trail, or read a file with line numbers + dependents (same output as the codegraph_node MCP tool)')
+  .description('One symbol\'s source + caller/callee trail, or read a file with line numbers + dependents (same output as the nascodegraph_node MCP tool)')
   .option('-p, --path <path>', 'Project path')
   .option('-f, --file <file>', 'Treat as file mode (or disambiguate a symbol to this file)')
   .option('--offset <number>', 'File mode: 1-based start line')
@@ -1162,10 +1162,10 @@ program
   .option('--symbols-only', 'File mode: just the symbol map + dependents')
   .action(async (name: string | undefined, options: { path?: string; file?: string; offset?: string; limit?: string; symbolsOnly?: boolean }) => {
     // Need a symbol (positional) OR a file (--file / a path-like positional).
-    // With [name] optional, a bare `codegraph node` reaches here with neither
+    // With [name] optional, a bare `nascodegraph node` reaches here with neither
     // and must be told what to pass, rather than crashing downstream.
     if (!name && !options.file) {
-      error("Pass a symbol name (e.g. 'codegraph node parseToken') or a file (e.g. 'codegraph node -f src/auth.ts', or 'codegraph node src/auth.ts').");
+      error("Pass a symbol name (e.g. 'nascodegraph node parseToken') or a file (e.g. 'nascodegraph node -f src/auth.ts', or 'nascodegraph node src/auth.ts').");
       process.exit(1);
     }
 
@@ -1173,12 +1173,12 @@ program
 
     try {
       if (!isInitialized(projectPath)) {
-        error(`CodeGraph isn't available here — no .codegraph/ index exists in ${projectPath}. If you are an AI agent: continue with your usual tools; indexing is the user's decision, do not run it yourself. (The project owner can enable CodeGraph with 'codegraph init'.)`);
+        error(`NasCodeGraph isn't available here — no .nascodegraph/ index exists in ${projectPath}. If you are an AI agent: continue with your usual tools; indexing is the user's decision, do not run it yourself. (The project owner can enable NasCodeGraph with 'nascodegraph init'.)`);
         process.exit(1);
       }
 
-      const { default: CodeGraph } = await loadCodeGraph();
-      const cg = await CodeGraph.open(projectPath);
+      const { default: NasCodeGraph } = await loadNasCodeGraph();
+      const cg = await NasCodeGraph.open(projectPath);
       const { ToolHandler } = await import('../mcp/tools');
       const handler = new ToolHandler(cg);
 
@@ -1201,7 +1201,7 @@ program
       if (options.limit) args.limit = parseInt(options.limit, 10);
       if (options.symbolsOnly) args.symbolsOnly = true;
 
-      const result = await handler.execute('codegraph_node', args);
+      const result = await handler.execute('nascodegraph_node', args);
 
       console.log(result.content[0]?.text ?? '');
       cg.destroy();
@@ -1213,7 +1213,7 @@ program
   });
 
 /**
- * codegraph files [path]
+ * nascodegraph files [path]
  */
 program
   .command('files')
@@ -1238,16 +1238,16 @@ program
 
     try {
       if (!isInitialized(projectPath)) {
-        error(`CodeGraph not initialized in ${projectPath}`);
+        error(`NasCodeGraph not initialized in ${projectPath}`);
         process.exit(1);
       }
 
-      const { default: CodeGraph } = await loadCodeGraph();
-      const cg = await CodeGraph.open(projectPath);
+      const { default: NasCodeGraph } = await loadNasCodeGraph();
+      const cg = await NasCodeGraph.open(projectPath);
       let files = cg.getFiles();
 
       if (files.length === 0) {
-        info('No files indexed. Run "codegraph index" first.');
+        info('No files indexed. Run "nascodegraph index" first.');
         cg.destroy();
         return;
       }
@@ -1339,9 +1339,9 @@ program
 
 /**
  * Normalize a user-supplied file path to the project-relative, forward-slash
- * form CodeGraph stores in the index. Accepts an absolute path, a `./`-prefixed
+ * form NasCodeGraph stores in the index. Accepts an absolute path, a `./`-prefixed
  * path, or Windows back-slashes; an empty string when the input is blank. Used
- * by `codegraph affected` so `./src/x.ts`, `/abs/repo/src/x.ts`, and
+ * by `nascodegraph affected` so `./src/x.ts`, `/abs/repo/src/x.ts`, and
  * `src/x.ts` all match the same indexed file. (#825)
  */
 function normalizeIndexPath(filePath: string, projectPath: string): string {
@@ -1437,21 +1437,21 @@ function printFileTree(
 }
 
 /**
- * codegraph daemon — interactive manager for the background daemons. Arrow keys
+ * nascodegraph daemon — interactive manager for the background daemons. Arrow keys
  * to pick one (the current project's daemon floats to the top, auto-selected),
  * enter to stop it. Falls back to a plain list when output isn't a TTY.
  */
 program
   .command('daemon')
   .aliases(['daemons'])
-  .description('Manage running CodeGraph background daemons — pick one and press enter to stop it')
+  .description('Manage running NasCodeGraph background daemons — pick one and press enter to stop it')
   .action(async () => {
     const { listDaemons, stopDaemonAt, stopAllDaemons } = await import('../mcp/daemon-registry');
     const { runDaemonPicker } = await import('../mcp/daemon-manager');
 
     const daemons = listDaemons();
     if (daemons.length === 0) {
-      info('No CodeGraph daemons running.');
+      info('No NasCodeGraph daemons running.');
       return;
     }
 
@@ -1466,11 +1466,11 @@ program
 
     // The current project's daemon floats to the top and is pre-selected.
     let cwdRoot: string | null = null;
-    const found = findNearestCodeGraphRoot(process.cwd());
+    const found = findNearestNasCodeGraphRoot(process.cwd());
     if (found) { try { cwdRoot = fs.realpathSync(found); } catch { cwdRoot = found; } }
 
     const clack = await importESM('@clack/prompts');
-    clack.intro('CodeGraph daemons');
+    clack.intro('NasCodeGraph daemons');
     await runDaemonPicker({
       list: listDaemons,
       stop: stopDaemonAt,
@@ -1485,7 +1485,7 @@ program
   });
 
 /**
- * codegraph serve
+ * nascodegraph serve
  */
 program
   // Hidden from `--help`: this is the stdio entry point an AI agent launches
@@ -1494,7 +1494,7 @@ program
   // invoked — hiding only removes it from the listing. See the interactive-TTY
   // guard below, which explains this to anyone who runs it by hand.
   .command('serve', { hidden: true })
-  .description('Start CodeGraph as an MCP server for AI assistants')
+  .description('Start NasCodeGraph as an MCP server for AI assistants')
   .option('-p, --path <path>', 'Project path (optional for MCP mode, uses rootUri from client)')
   .option('--mcp', 'Run as MCP server (stdio transport)')
   .option('--no-watch', 'Disable the file watcher (no auto-sync; useful on slow filesystems like WSL2 /mnt drives)')
@@ -1504,7 +1504,7 @@ program
     // Commander sets watch=false when --no-watch is passed. Route it through
     // the same env-var chokepoint the watcher and MCP server already honor.
     if (options.watch === false) {
-      process.env.CODEGRAPH_NO_WATCH = '1';
+      process.env.NASTECHGRAPH_NO_WATCH = '1';
     }
 
     try {
@@ -1515,13 +1515,13 @@ program
         // stdin is an interactive TTY, explain instead of hanging. The agent's
         // pipe and the detached daemon both have a non-TTY stdin, so this only
         // ever fires for a person who typed it.
-        if (process.stdin.isTTY && !process.env.CODEGRAPH_DAEMON_INTERNAL) {
-          console.error(chalk.bold('\nCodeGraph MCP server\n'));
+        if (process.stdin.isTTY && !process.env.NASTECHGRAPH_DAEMON_INTERNAL) {
+          console.error(chalk.bold('\nNasCodeGraph MCP server\n'));
           console.error("This is the MCP server your AI agent (Claude Code, Cursor, Codex, opencode, …)");
           console.error("starts automatically — you don't run it yourself.");
-          console.error(`\nIt's already wired up by ${chalk.cyan('codegraph install')}. To check on things:`);
-          console.error(`  ${chalk.cyan('codegraph status')}   ${chalk.dim('— is this project indexed and healthy?')}`);
-          console.error(`  ${chalk.cyan('codegraph daemon')}   ${chalk.dim('— list or stop background MCP servers')}`);
+          console.error(`\nIt's already wired up by ${chalk.cyan('nascodegraph install')}. To check on things:`);
+          console.error(`  ${chalk.cyan('nascodegraph status')}   ${chalk.dim('— is this project indexed and healthy?')}`);
+          console.error(`  ${chalk.cyan('nascodegraph daemon')}   ${chalk.dim('— list or stop background MCP servers')}`);
           console.error(chalk.dim('\n(Running it directly only does something when an MCP client drives it over stdin.)'));
           return;
         }
@@ -1533,28 +1533,28 @@ program
       } else {
         // Default: show info about MCP mode.
         // Use stderr so stdout stays clean for any piped/stdio usage.
-        console.error(chalk.bold('\nCodeGraph MCP Server\n'));
+        console.error(chalk.bold('\nNasCodeGraph MCP Server\n'));
         console.error(chalk.blue(getGlyphs().info) + ' Use --mcp flag to start the MCP server');
         console.error('\nTo use with Claude Code, add to your MCP configuration:');
         console.error(chalk.dim(`
 {
   "mcpServers": {
-    "codegraph": {
-      "command": "codegraph",
+    "nascodegraph": {
+      "command": "nascodegraph",
       "args": ["serve", "--mcp"]
     }
   }
 }
 `));
         console.error('Available tools:');
-        console.error(chalk.cyan('  codegraph_explore') + '   - Primary: source of the relevant symbols for any question');
-        console.error(chalk.cyan('  codegraph_search') + '    - Search for code symbols');
-        console.error(chalk.cyan('  codegraph_callers') + '   - Find callers of a symbol');
-        console.error(chalk.cyan('  codegraph_callees') + '   - Find what a symbol calls');
-        console.error(chalk.cyan('  codegraph_impact') + '    - Analyze impact of changes');
-        console.error(chalk.cyan('  codegraph_node') + '      - Get symbol details');
-        console.error(chalk.cyan('  codegraph_files') + '     - Get project file structure');
-        console.error(chalk.cyan('  codegraph_status') + '    - Get index status');
+        console.error(chalk.cyan('  nascodegraph_explore') + '   - Primary: source of the relevant symbols for any question');
+        console.error(chalk.cyan('  nascodegraph_search') + '    - Search for code symbols');
+        console.error(chalk.cyan('  nascodegraph_callers') + '   - Find callers of a symbol');
+        console.error(chalk.cyan('  nascodegraph_callees') + '   - Find what a symbol calls');
+        console.error(chalk.cyan('  nascodegraph_impact') + '    - Analyze impact of changes');
+        console.error(chalk.cyan('  nascodegraph_node') + '      - Get symbol details');
+        console.error(chalk.cyan('  nascodegraph_files') + '     - Get project file structure');
+        console.error(chalk.cyan('  nascodegraph_status') + '    - Get index status');
       }
     } catch (err) {
       error(`Failed to start server: ${err instanceof Error ? err.message : String(err)}`);
@@ -1563,7 +1563,7 @@ program
   });
 
 /**
- * codegraph unlock [path]
+ * nascodegraph unlock [path]
  */
 program
   .command('unlock [path]')
@@ -1573,11 +1573,11 @@ program
 
     try {
       if (!isInitialized(projectPath)) {
-        error(`CodeGraph not initialized in ${projectPath}`);
+        error(`NasCodeGraph not initialized in ${projectPath}`);
         return;
       }
 
-      const lockPath = path.join(getCodeGraphDir(projectPath), 'codegraph.lock');
+      const lockPath = path.join(getNasCodeGraphDir(projectPath), 'nascodegraph.lock');
 
       if (!fs.existsSync(lockPath)) {
         info(`No lock file found ${getGlyphs().dash} nothing to do`);
@@ -1593,9 +1593,9 @@ program
   });
 
 /**
- * codegraph callers <symbol>
+ * nascodegraph callers <symbol>
  *
- * CLI parity with the MCP graph tools (codegraph_callers/callees/impact) so the
+ * CLI parity with the MCP graph tools (nascodegraph_callers/callees/impact) so the
  * traversal queries work in scripts, CI, and git hooks without a running MCP
  * server.
  */
@@ -1610,12 +1610,12 @@ program
 
     try {
       if (!isInitialized(projectPath)) {
-        error(`CodeGraph not initialized in ${projectPath}`);
+        error(`NasCodeGraph not initialized in ${projectPath}`);
         process.exit(1);
       }
 
-      const { default: CodeGraph } = await loadCodeGraph();
-      const cg = await CodeGraph.open(projectPath);
+      const { default: NasCodeGraph } = await loadNasCodeGraph();
+      const cg = await NasCodeGraph.open(projectPath);
       const limit = parseInt(options.limit || '20', 10);
 
       const matches = cg.searchNodes(symbol, { limit: 50 });
@@ -1676,7 +1676,7 @@ program
   });
 
 /**
- * codegraph callees <symbol>
+ * nascodegraph callees <symbol>
  */
 program
   .command('callees <symbol>')
@@ -1689,12 +1689,12 @@ program
 
     try {
       if (!isInitialized(projectPath)) {
-        error(`CodeGraph not initialized in ${projectPath}`);
+        error(`NasCodeGraph not initialized in ${projectPath}`);
         process.exit(1);
       }
 
-      const { default: CodeGraph } = await loadCodeGraph();
-      const cg = await CodeGraph.open(projectPath);
+      const { default: NasCodeGraph } = await loadNasCodeGraph();
+      const cg = await NasCodeGraph.open(projectPath);
       const limit = parseInt(options.limit || '20', 10);
 
       const matches = cg.searchNodes(symbol, { limit: 50 });
@@ -1754,7 +1754,7 @@ program
   });
 
 /**
- * codegraph impact <symbol>
+ * nascodegraph impact <symbol>
  */
 program
   .command('impact <symbol>')
@@ -1767,12 +1767,12 @@ program
 
     try {
       if (!isInitialized(projectPath)) {
-        error(`CodeGraph not initialized in ${projectPath}`);
+        error(`NasCodeGraph not initialized in ${projectPath}`);
         process.exit(1);
       }
 
-      const { default: CodeGraph } = await loadCodeGraph();
-      const cg = await CodeGraph.open(projectPath);
+      const { default: NasCodeGraph } = await loadNasCodeGraph();
+      const cg = await NasCodeGraph.open(projectPath);
       const depth = Math.min(Math.max(parseInt(options.depth || '2', 10), 1), 10);
 
       const matches = cg.searchNodes(symbol, { limit: 50 });
@@ -1851,14 +1851,14 @@ program
   });
 
 /**
- * codegraph affected [files...]
+ * nascodegraph affected [files...]
  *
  * Find test files affected by the given source files.
  * Traces dependency edges transitively to find test files that depend on changed code.
  *
  * Usage:
- *   git diff --name-only | codegraph affected --stdin
- *   codegraph affected src/lib/components/Editor.svelte src/routes/+page.svelte
+ *   git diff --name-only | nascodegraph affected --stdin
+ *   nascodegraph affected src/lib/components/Editor.svelte src/routes/+page.svelte
  */
 program
   .command('affected [files...]')
@@ -1874,7 +1874,7 @@ program
 
     try {
       if (!isInitialized(projectPath)) {
-        error(`CodeGraph not initialized in ${projectPath}`);
+        error(`NasCodeGraph not initialized in ${projectPath}`);
         process.exit(1);
       }
 
@@ -1900,8 +1900,8 @@ program
         process.exit(0);
       }
 
-      const { default: CodeGraph } = await loadCodeGraph();
-      const cg = await CodeGraph.open(projectPath);
+      const { default: NasCodeGraph } = await loadNasCodeGraph();
+      const cg = await NasCodeGraph.open(projectPath);
       const maxDepth = parseInt(options.depth || '5', 10);
 
       // Common test file patterns
@@ -1997,11 +1997,11 @@ program
   });
 
 /**
- * codegraph install
+ * nascodegraph install
  */
 program
   .command('install')
-  .description('Install codegraph MCP server into one or more agents (Claude Code, Cursor, Codex CLI, opencode, NasTech Agent)')
+  .description('Install nascodegraph MCP server into one or more agents (Claude Code, Cursor, Codex CLI, opencode, NasTech Agent)')
   .option('-t, --target <ids>', 'Target agent(s): comma-separated ids, or "auto"|"all"|"none". Default: prompt')
   .option('-l, --location <where>', 'Install location: "global" or "local". Default: prompt')
   .option('-y, --yes', 'Non-interactive: defaults to --location=global --target=auto, auto-allow on')
@@ -2059,16 +2059,16 @@ program
   });
 
 /**
- * codegraph uninstall
+ * nascodegraph uninstall
  *
- * Inverse of `install`. Removes the codegraph MCP server entry,
+ * Inverse of `install`. Removes the nascodegraph MCP server entry,
  * instructions block, and permissions from every agent (or a
  * `--target` subset). Prompts global-vs-local when not given. Does NOT
- * delete the `.codegraph/` index — that's `codegraph uninit`.
+ * delete the `.nascodegraph/` index — that's `nascodegraph uninit`.
  */
 program
   .command('uninstall')
-  .description('Remove codegraph from your agents (Claude Code, Cursor, Codex CLI, opencode, NasTech Agent)')
+  .description('Remove nascodegraph from your agents (Claude Code, Cursor, Codex CLI, opencode, NasTech Agent)')
   .option('-t, --target <ids>', 'Target agent(s): comma-separated ids, or "all". Default: all')
   .option('-l, --location <where>', 'Uninstall location: "global" or "local". Default: prompt')
   .option('-y, --yes', 'Non-interactive: defaults to --location=global --target=all')
@@ -2095,7 +2095,7 @@ program
   });
 
 /**
- * codegraph telemetry [on|off|status]
+ * nascodegraph telemetry [on|off|status]
  */
 program
   .command('telemetry [action]')
@@ -2111,7 +2111,7 @@ program
         success('Telemetry disabled. Buffered, unsent data was deleted.');
       }
       const effective = t.getStatus();
-      if (effective.decidedBy === 'DO_NOT_TRACK' || effective.decidedBy === 'CODEGRAPH_TELEMETRY') {
+      if (effective.decidedBy === 'DO_NOT_TRACK' || effective.decidedBy === 'NASTECHGRAPH_TELEMETRY') {
         warn(
           `The ${effective.decidedBy} environment variable overrides this choice — ` +
           `effective state right now: ${effective.enabled ? 'enabled' : 'disabled'}.`
@@ -2128,7 +2128,7 @@ program
     const s = t.getStatus();
     const decidedBy: Record<typeof s.decidedBy, string> = {
       DO_NOT_TRACK: 'DO_NOT_TRACK environment variable',
-      CODEGRAPH_TELEMETRY: 'CODEGRAPH_TELEMETRY environment variable',
+      NASTECHGRAPH_TELEMETRY: 'NASTECHGRAPH_TELEMETRY environment variable',
       config: 'your saved choice',
       default: 'default',
     };
@@ -2139,15 +2139,15 @@ program
   });
 
 /**
- * codegraph upgrade [version]
+ * nascodegraph upgrade [version]
  *
- * Self-update, however CodeGraph was installed (bundle via install.sh/.ps1,
+ * Self-update, however NasCodeGraph was installed (bundle via install.sh/.ps1,
  * npm-global, npx, or a source checkout). See ../upgrade for the detection and
  * per-method upgrade logic.
  */
 program
   .command('upgrade [version]')
-  .description('Update CodeGraph to the latest release (or a specific version)')
+  .description('Update NasCodeGraph to the latest release (or a specific version)')
   .option('--check', 'Check whether an update is available without installing')
   .option('-f, --force', 'Reinstall even if already on the target version')
   .action(async (versionArg: string | undefined, options: { check?: boolean; force?: boolean }) => {
@@ -2157,7 +2157,7 @@ program
       platform: process.platform,
       cwd: process.cwd(),
     });
-    const pin = versionArg || process.env.CODEGRAPH_VERSION || undefined;
+    const pin = versionArg || process.env.NASTECHGRAPH_VERSION || undefined;
     const code = await up.runUpgrade(
       { version: pin, check: options.check, force: options.force },
       {
@@ -2176,16 +2176,16 @@ program
   });
 
 /**
- * codegraph version
+ * nascodegraph version
  *
  * The bare-noun form of `--version`. commander already provides `--version`
  * and `-V`, and the `-v` / `-version` spellings are intercepted before parse
- * (see top of main). This subcommand makes `codegraph version` work and lists
- * the version affordance in `codegraph --help`.
+ * (see top of main). This subcommand makes `nascodegraph version` work and lists
+ * the version affordance in `nascodegraph --help`.
  */
 program
   .command('version')
-  .description('Print the installed CodeGraph version (also: -v, --version)')
+  .description('Print the installed NasCodeGraph version (also: -v, --version)')
   .action(() => {
     console.log(packageJson.version);
   });

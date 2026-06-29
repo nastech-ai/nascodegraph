@@ -1,6 +1,6 @@
 /**
  * Parse worker pool — runs tree-sitter parsing across N worker threads so a full
- * `codegraph index` uses every core instead of pinning one.
+ * `nascodegraph index` uses every core instead of pinning one.
  *
  * Why this exists: `ExtractionOrchestrator.indexAll()` already reads files in
  * parallel, but it parsed them through a SINGLE worker thread, so on an
@@ -21,7 +21,7 @@
  *     silently requeued — the orchestrator owns the smarter two-stage retry
  *     (fresh worker, then comment-stripped) on a clean WASM heap.
  *   - a size-1 pool reproduces the old single-worker path exactly, which is the
- *     conservative rollback: set `CODEGRAPH_PARSE_WORKERS=1`.
+ *     conservative rollback: set `NASTECHGRAPH_PARSE_WORKERS=1`.
  *
  * Memory: peak scales with pool size (≈ size × a worker's pre-recycle heap), so
  * the default is capped and the env var lets constrained machines dial it down.
@@ -45,7 +45,7 @@ export interface ParsePoolWorker {
 }
 
 /** A single file to parse. `language` is resolved on the main thread (it holds
- *  the project's codegraph.json extension overrides) and handed to the worker. */
+ *  the project's nascodegraph.json extension overrides) and handed to the worker. */
 export interface ParseTask {
   filePath: string;
   content: string;
@@ -77,7 +77,7 @@ const MAX_CONCURRENT_SPAWN = 2;
 const CRASH_BUDGET = 100;
 
 /**
- * Resolve the pool size from the `CODEGRAPH_PARSE_WORKERS` override and the
+ * Resolve the pool size from the `NASTECHGRAPH_PARSE_WORKERS` override and the
  * machine's core count.
  *   - explicit `0` or `1` → 1 worker (the old single-worker path; the rollback).
  *   - explicit `N` → N, clamped to [1, 16].

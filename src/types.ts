@@ -1,5 +1,5 @@
 /**
- * CodeGraph Type Definitions
+ * NasCodeGraph Type Definitions
  *
  * Core types for the semantic knowledge graph system.
  */

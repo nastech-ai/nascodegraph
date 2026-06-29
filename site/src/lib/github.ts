@@ -18,10 +18,10 @@ async function fetchStars(fallback: string): Promise<string> {
 	try {
 		const controller = new AbortController();
 		const timeout = setTimeout(() => controller.abort(), 3000);
-		const res = await fetch('https://api.github.com/repos/nastech-ai/nascodegraph', {
+		const res = await fetch('https://api.github.com/repos/nastech-ai/nasnascodegraph', {
 			headers: {
 				Accept: 'application/vnd.github+json',
-				'User-Agent': 'codegraph-site',
+				'User-Agent': 'nascodegraph-site',
 			},
 			signal: controller.signal,
 		});

@@ -1,16 +1,16 @@
 ---
 title: API
-description: Use CodeGraph as a TypeScript library.
+description: Use NasCodeGraph as a TypeScript library.
 ---
 
-CodeGraph ships a TypeScript API. The public surface is the `CodeGraph` class.
+NasCodeGraph ships a TypeScript API. The public surface is the `NasCodeGraph` class.
 
 ```typescript
-import CodeGraph from '@nastech-ai/nascodegraph';
+import NasCodeGraph from '@nastech-ai/nasnascodegraph';
 
-const cg = await CodeGraph.init('/path/to/project');
+const cg = await NasCodeGraph.init('/path/to/project');
 // Or open an existing index:
-// const cg = await CodeGraph.open('/path/to/project');
+// const cg = await NasCodeGraph.open('/path/to/project');
 
 await cg.indexAll({
   onProgress: (p) => console.log(`${p.phase}: ${p.current}/${p.total}`),
@@ -34,7 +34,7 @@ cg.close();
 
 | Method | Purpose |
 |---|---|
-| `CodeGraph.init(path)` / `CodeGraph.open(path)` | Create or open a project index |
+| `NasCodeGraph.init(path)` / `NasCodeGraph.open(path)` | Create or open a project index |
 | `indexAll(opts)` | Full index, with progress callback |
 | `sync()` | Incremental update |
 | `searchNodes(query)` | Full-text symbol search |
@@ -44,26 +44,26 @@ cg.close();
 | `watch()` / `unwatch()` | Start / stop the file watcher |
 | `close()` | Close the database connection |
 
-CommonJS works too — `const { CodeGraph } = require('@nastech-ai/nascodegraph');`.
+CommonJS works too — `const { NasCodeGraph } = require('@nastech-ai/nasnascodegraph');`.
 
 ## Lower-level building blocks
 
-The same entry point exports primitives for callers that drive the graph directly rather than through the `CodeGraph` facade: `DatabaseConnection`, `QueryBuilder`, `getDatabasePath`, `initGrammars` / `loadGrammarsForLanguages`, and `FileLock`.
+The same entry point exports primitives for callers that drive the graph directly rather than through the `NasCodeGraph` facade: `DatabaseConnection`, `QueryBuilder`, `getDatabasePath`, `initGrammars` / `loadGrammarsForLanguages`, and `FileLock`.
 
 ```typescript
 import {
-  CodeGraph,
+  NasCodeGraph,
   DatabaseConnection,
   QueryBuilder,
   getDatabasePath,
   initGrammars,
   loadGrammarsForLanguages,
   FileLock,
-} from '@nastech-ai/nascodegraph';
+} from '@nastech-ai/nasnascodegraph';
 ```
 
 ## Embedding requirements
 
-- **Install from npm** (`npm i @nastech-ai/nascodegraph`) so the matching per-platform package — which carries the compiled library — is fetched alongside the shim.
+- **Install from npm** (`npm i @nastech-ai/nasnascodegraph`) so the matching per-platform package — which carries the compiled library — is fetched alongside the shim.
 - The API runs on **your** runtime, so it needs **Node 22.5+** for the built-in `node:sqlite` module (an Electron main process qualifies when its bundled Node is 22.5+). The CLI and MCP server are unaffected — they ship with a self-contained bundled runtime and need no Node at all.
 - TypeScript types ship with the package. Keep `@types/node` available and `skipLibCheck: true` (the common default).

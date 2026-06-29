@@ -5,11 +5,11 @@
  * top-level `mcp_servers` key, and exposes discovered MCP tools through
  * dynamic toolsets named `mcp-<server>`. We add:
  *
- *   mcp_servers.codegraph -> `codegraph serve --mcp`
- *   platform_toolsets.cli -> `mcp-codegraph`
+ *   mcp_servers.nascodegraph -> `nascodegraph serve --mcp`
+ *   platform_toolsets.cli -> `mcp-nascodegraph`
  *
  * The second entry matters because NasTech CLI profiles often enable an
- * explicit `platform_toolsets.cli` list. Without `mcp-codegraph` in that
+ * explicit `platform_toolsets.cli` list. Without `mcp-nascodegraph` in that
  * list, the MCP server can be configured and connected but its tools may
  * still be filtered out of normal CLI sessions.
  */
@@ -46,7 +46,7 @@ class NastechTarget implements AgentTarget {
     const installed = fs.existsSync(nastechHome()) || fs.existsSync(file);
     return {
       installed,
-      alreadyConfigured: hasCodeGraphMcpServer(content),
+      alreadyConfigured: hasNasCodeGraphMcpServer(content),
       configPath: file,
     };
   }
@@ -72,7 +72,7 @@ class NastechTarget implements AgentTarget {
     }
 
     const before = readText(file);
-    const after = removeCodeGraphToolset(removeCodeGraphMcpServer(before));
+    const after = removeNasCodeGraphToolset(removeNasCodeGraphMcpServer(before));
     if (after === before) {
       return { files: [{ path: file, action: 'not-found' }] };
     }
@@ -87,12 +87,12 @@ class NastechTarget implements AgentTarget {
     return [
       `# Add to ${configPath()}`,
       '',
-      renderCodeGraphMcpBlock().join('\n'),
+      renderNasCodeGraphMcpBlock().join('\n'),
       '',
       'platform_toolsets:',
       '  cli:',
       '    - nastech-cli',
-      '    - mcp-codegraph',
+      '    - mcp-nascodegraph',
       '',
     ].join('\n');
   }
@@ -124,8 +124,8 @@ function writeNasTechConfig(): WriteResult['files'][number] {
   const file = configPath();
   const existed = fs.existsSync(file);
   const before = readText(file);
-  const afterMcp = upsertCodeGraphMcpServer(before);
-  const after = upsertCodeGraphToolset(afterMcp);
+  const afterMcp = upsertNasCodeGraphMcpServer(before);
+  const after = upsertNasCodeGraphToolset(afterMcp);
 
   if (after === before) {
     return { path: file, action: 'unchanged' };
@@ -249,10 +249,10 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function renderCodeGraphMcpChild(): string[] {
+function renderNasCodeGraphMcpChild(): string[] {
   return [
-    '  codegraph:',
-    '    command: codegraph',
+    '  nascodegraph:',
+    '    command: nascodegraph',
     '    args:',
     '      - serve',
     '      - --mcp',
@@ -262,26 +262,26 @@ function renderCodeGraphMcpChild(): string[] {
   ];
 }
 
-function renderCodeGraphMcpBlock(): string[] {
-  return ['mcp_servers:', ...renderCodeGraphMcpChild()];
+function renderNasCodeGraphMcpBlock(): string[] {
+  return ['mcp_servers:', ...renderNasCodeGraphMcpChild()];
 }
 
-function hasCodeGraphMcpServer(content: string): boolean {
+function hasNasCodeGraphMcpServer(content: string): boolean {
   const lines = splitLines(content);
   const parent = topLevelRange(lines, 'mcp_servers');
-  return !!parent && !!childRange(lines, parent, 'codegraph');
+  return !!parent && !!childRange(lines, parent, 'nascodegraph');
 }
 
-function upsertCodeGraphMcpServer(content: string): string {
+function upsertNasCodeGraphMcpServer(content: string): string {
   const lines = splitLines(content);
   const parent = topLevelRange(lines, 'mcp_servers');
-  const child = parent ? childRange(lines, parent, 'codegraph') : null;
-  const replacement = renderCodeGraphMcpChild();
+  const child = parent ? childRange(lines, parent, 'nascodegraph') : null;
+  const replacement = renderNasCodeGraphMcpChild();
 
   if (!parent) {
     if (lines.length > 0 && lines[lines.length - 1] === '') lines.pop();
     if (lines.length > 0) lines.push('');
-    lines.push(...renderCodeGraphMcpBlock());
+    lines.push(...renderNasCodeGraphMcpBlock());
     return joinLines(lines);
   }
 
@@ -296,16 +296,16 @@ function upsertCodeGraphMcpServer(content: string): string {
   return joinLines(lines);
 }
 
-function removeCodeGraphMcpServer(content: string): string {
+function removeNasCodeGraphMcpServer(content: string): string {
   const lines = splitLines(content);
   const parent = topLevelRange(lines, 'mcp_servers');
-  const child = parent ? childRange(lines, parent, 'codegraph') : null;
+  const child = parent ? childRange(lines, parent, 'nascodegraph') : null;
   if (!child) return content;
   lines.splice(child.start, child.end - child.start);
   return joinLines(lines);
 }
 
-function upsertCodeGraphToolset(content: string): string {
+function upsertNasCodeGraphToolset(content: string): string {
   const lines = splitLines(content);
   const parent = topLevelRange(lines, 'platform_toolsets');
   const cli = parent ? listChildBlock(lines, parent, 'cli') : null;
@@ -313,25 +313,25 @@ function upsertCodeGraphToolset(content: string): string {
   if (!parent) {
     if (lines.length > 0 && lines[lines.length - 1] === '') lines.pop();
     if (lines.length > 0) lines.push('');
-    lines.push('platform_toolsets:', '  cli:', '    - nastech-cli', '    - mcp-codegraph');
+    lines.push('platform_toolsets:', '  cli:', '    - nastech-cli', '    - mcp-nascodegraph');
     return joinLines(lines);
   }
 
   if (!cli) {
-    lines.splice(parent.end, 0, '  cli:', '    - nastech-cli', '    - mcp-codegraph');
+    lines.splice(parent.end, 0, '  cli:', '    - nastech-cli', '    - mcp-nascodegraph');
     return joinLines(lines);
   }
 
   const hasEntry = lines
     .slice(cli.start + 1, cli.end)
-    .some((line) => line.trim() === '- mcp-codegraph');
+    .some((line) => line.trim() === '- mcp-nascodegraph');
   if (hasEntry) return joinLines(lines);
 
-  lines.splice(cli.end, 0, `${cli.itemIndent}- mcp-codegraph`);
+  lines.splice(cli.end, 0, `${cli.itemIndent}- mcp-nascodegraph`);
   return joinLines(lines);
 }
 
-function removeCodeGraphToolset(content: string): string {
+function removeNasCodeGraphToolset(content: string): string {
   const lines = splitLines(content);
   const parent = topLevelRange(lines, 'platform_toolsets');
   const cli = parent ? listChildBlock(lines, parent, 'cli') : null;
@@ -339,12 +339,12 @@ function removeCodeGraphToolset(content: string): string {
 
   const hasEntry = lines
     .slice(cli.start + 1, cli.end)
-    .some((line) => line.trim() === '- mcp-codegraph');
+    .some((line) => line.trim() === '- mcp-nascodegraph');
   if (!hasEntry) return content;
 
   const next = lines.filter((line, idx) => {
     if (idx <= cli.start || idx >= cli.end) return true;
-    return line.trim() !== '- mcp-codegraph';
+    return line.trim() !== '- mcp-nascodegraph';
   });
   return joinLines(next);
 }

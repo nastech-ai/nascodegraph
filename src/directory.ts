@@ -1,7 +1,7 @@
 /**
  * Directory Management
  *
- * Manages the .codegraph/ directory structure for CodeGraph data.
+ * Manages the .nascodegraph/ directory structure for NasCodeGraph data.
  */
 
 import * as fs from 'fs';
@@ -9,21 +9,21 @@ import * as os from 'os';
 import * as path from 'path';
 
 /** The default per-project data directory name. */
-const DEFAULT_CODEGRAPH_DIR = '.codegraph';
+const DEFAULT_NASTECHGRAPH_DIR = '.nascodegraph';
 
 let warnedBadDirName = false;
 
 /**
- * Resolve the per-project data directory name, honoring the `CODEGRAPH_DIR`
- * environment override (default `.codegraph`). The override is a single path
+ * Resolve the per-project data directory name, honoring the `NASTECHGRAPH_DIR`
+ * environment override (default `.nascodegraph`). The override is a single path
  * segment that lives in the project root.
  *
  * Why this exists: two environments that share one working tree must NOT share
- * one `.codegraph/` — most concretely Windows-native and WSL (issue #636). The
- * daemon lockfile (`.codegraph/daemon.pid`) records a platform-specific pid and
+ * one `.nascodegraph/` — most concretely Windows-native and WSL (issue #636). The
+ * daemon lockfile (`.nascodegraph/daemon.pid`) records a platform-specific pid and
  * socket path (a Windows named pipe vs a WSL Unix socket), and SQLite file
  * locking across the WSL2 ↔ Windows filesystem boundary is unreliable, so two
- * daemons sharing one index risks corruption. Setting `CODEGRAPH_DIR=.codegraph-win`
+ * daemons sharing one index risks corruption. Setting `NASTECHGRAPH_DIR=.nascodegraph-win`
  * on one side gives each environment its own index in the same tree.
  *
  * Read live (not captured at load) so it is both process-accurate and testable.
@@ -33,8 +33,8 @@ let warnedBadDirName = false;
  * project root itself; we warn once to stderr so the misconfiguration is seen.
  */
 export function codeGraphDirName(): string {
-  const raw = process.env.CODEGRAPH_DIR?.trim();
-  if (!raw) return DEFAULT_CODEGRAPH_DIR;
+  const raw = process.env.NASTECHGRAPH_DIR?.trim();
+  if (!raw) return DEFAULT_NASTECHGRAPH_DIR;
   const invalid =
     raw === '.' ||
     raw.includes('..') ||
@@ -46,68 +46,68 @@ export function codeGraphDirName(): string {
       warnedBadDirName = true;
       // stderr only — stdout is the MCP protocol channel.
       console.warn(
-        `[codegraph] Ignoring invalid CODEGRAPH_DIR="${raw}" — it must be a plain ` +
-          `directory name (no path separators, no "..", not absolute). Using "${DEFAULT_CODEGRAPH_DIR}".`
+        `[nascodegraph] Ignoring invalid NASTECHGRAPH_DIR="${raw}" — it must be a plain ` +
+          `directory name (no path separators, no "..", not absolute). Using "${DEFAULT_NASTECHGRAPH_DIR}".`
       );
     }
-    return DEFAULT_CODEGRAPH_DIR;
+    return DEFAULT_NASTECHGRAPH_DIR;
   }
   return raw;
 }
 
 /**
- * CodeGraph directory name — a load-time snapshot of {@link codeGraphDirName}.
+ * NasCodeGraph directory name — a load-time snapshot of {@link codeGraphDirName}.
  * A running process's environment is fixed, so this equals the live value;
  * it's kept as a stable string export for backward compatibility. Internal code
- * resolves the name through {@link codeGraphDirName} / {@link getCodeGraphDir}
- * so the `CODEGRAPH_DIR` override always applies.
+ * resolves the name through {@link codeGraphDirName} / {@link getNasCodeGraphDir}
+ * so the `NASTECHGRAPH_DIR` override always applies.
  */
-export const CODEGRAPH_DIR = codeGraphDirName();
+export const NASTECHGRAPH_DIR = codeGraphDirName();
 
 /**
- * Is `name` (a single path segment) a CodeGraph data directory? Matches the
- * default `.codegraph`, the active `CODEGRAPH_DIR` override, and any
- * `.codegraph-*` sibling. File-watching and the indexer skip ALL of these, so
+ * Is `name` (a single path segment) a NasCodeGraph data directory? Matches the
+ * default `.nascodegraph`, the active `NASTECHGRAPH_DIR` override, and any
+ * `.nascodegraph-*` sibling. File-watching and the indexer skip ALL of these, so
  * when two environments share one working tree (Windows + WSL, issue #636)
  * neither indexes or watches the other's index directory.
  */
-export function isCodeGraphDataDir(name: string): boolean {
+export function isNasCodeGraphDataDir(name: string): boolean {
   return (
-    name === DEFAULT_CODEGRAPH_DIR ||
+    name === DEFAULT_NASTECHGRAPH_DIR ||
     name === codeGraphDirName() ||
-    name.startsWith(DEFAULT_CODEGRAPH_DIR + '-')
+    name.startsWith(DEFAULT_NASTECHGRAPH_DIR + '-')
   );
 }
 
 /**
- * Get the .codegraph directory path for a project
+ * Get the .nascodegraph directory path for a project
  */
-export function getCodeGraphDir(projectRoot: string): string {
+export function getNasCodeGraphDir(projectRoot: string): string {
   return path.join(projectRoot, codeGraphDirName());
 }
 
 /**
- * Check if a project has been initialized with CodeGraph
- * Requires both .codegraph/ directory AND codegraph.db to exist
+ * Check if a project has been initialized with NasCodeGraph
+ * Requires both .nascodegraph/ directory AND nascodegraph.db to exist
  */
 export function isInitialized(projectRoot: string): boolean {
-  const codegraphDir = getCodeGraphDir(projectRoot);
-  if (!fs.existsSync(codegraphDir) || !fs.statSync(codegraphDir).isDirectory()) {
+  const nascodegraphDir = getNasCodeGraphDir(projectRoot);
+  if (!fs.existsSync(nascodegraphDir) || !fs.statSync(nascodegraphDir).isDirectory()) {
     return false;
   }
-  // Must have codegraph.db, not just .codegraph folder
-  const dbPath = path.join(codegraphDir, 'codegraph.db');
+  // Must have nascodegraph.db, not just .nascodegraph folder
+  const dbPath = path.join(nascodegraphDir, 'nascodegraph.db');
   return fs.existsSync(dbPath);
 }
 
 /**
- * Find the nearest parent directory containing .codegraph/
+ * Find the nearest parent directory containing .nascodegraph/
  *
- * Walks up from the given path to find a CodeGraph-initialized project,
+ * Walks up from the given path to find a NasCodeGraph-initialized project,
  * similar to how git finds .git/ directories.
  *
  * @param startPath - Directory to start searching from
- * @returns The project root containing .codegraph/, or null if not found
+ * @returns The project root containing .nascodegraph/, or null if not found
  */
 /**
  * Reason a directory is unsafe to use as an index ROOT, or null when it's fine.
@@ -116,7 +116,7 @@ export function isInitialized(projectRoot: string): boolean {
  * every other project, etc. — a multi-GB index, constant file-watcher churn, and
  * (pre-1.0 on macOS) a file-descriptor blowup that exhausted `kern.maxfiles` and
  * took unrelated apps / the whole machine down (#845). The classic trigger:
- * running the installer or `codegraph init` from `$HOME`, which auto-indexes the
+ * running the installer or `nascodegraph init` from `$HOME`, which auto-indexes the
  * current directory. These are never intended project roots, so the installer
  * and `init`/`index` refuse them (overridable with `--force`).
  *
@@ -155,7 +155,7 @@ export function unsafeIndexRootReason(projectRoot: string): string | null {
   return null;
 }
 
-export function findNearestCodeGraphRoot(startPath: string): string | null {
+export function findNearestNasCodeGraphRoot(startPath: string): string | null {
   let current = path.resolve(startPath);
   const root = path.parse(current).root;
 
@@ -204,7 +204,7 @@ function escapeRegExp(s: string): string {
 /**
  * Indexed sub-project roots beneath `root` (bounded breadth-first scan). For
  * the monorepo case behind #964: the index lives in a CHILD
- * (`packages/x/.codegraph/`), not at the workspace root the agent's cwd points
+ * (`packages/x/.nascodegraph/`), not at the workspace root the agent's cwd points
  * at. Descent stops at the first indexed directory on a branch (a project's
  * own sub-dirs aren't separate projects) and is bounded by depth + count so it
  * never turns into a full-tree crawl on a large repo.
@@ -327,13 +327,13 @@ export interface FrontloadPlan {
   nudgeProjects: string[];
   /** True when the plan came from scanning DOWN into sub-projects (cwd itself
    *  is not under any index) — the monorepo case, where a follow-up
-   *  `codegraph_explore` needs an explicit `projectPath`. */
+   *  `nascodegraph_explore` needs an explicit `projectPath`. */
   viaSubScan: boolean;
 }
 
 /**
  * Decide what the front-load hook injects for a `prompt` issued from `cwd`,
- * shaped by where the `.codegraph/` index(es) actually are:
+ * shaped by where the `.nascodegraph/` index(es) actually are:
  *   1. **cwd (or an ancestor) is indexed** → front-load that project. The
  *      normal single-project / nested-file case.
  *   2. **cwd isn't indexed but looks like a workspace root** → the indexes live
@@ -387,25 +387,25 @@ export function planFrontload(cwd: string, prompt: string): FrontloadPlan {
 }
 
 /**
- * Contents of `.codegraph/.gitignore`. A single wildcard ignore keeps every
+ * Contents of `.nascodegraph/.gitignore`. A single wildcard ignore keeps every
  * transient file in the index dir — the database, `daemon.pid`, the socket,
  * logs, cache, and anything future versions add — out of git, without having
  * to enumerate each name (issues #788, #492, #484). Older versions wrote an
  * explicit allowlist that never listed `daemon.pid` or the socket, so those
  * runtime files were silently committed.
  */
-const GITIGNORE_CONTENT = `# CodeGraph data files — local to each machine, not for committing.
-# Ignore everything in .codegraph/ except this file itself, so transient
+const GITIGNORE_CONTENT = `# NasCodeGraph data files — local to each machine, not for committing.
+# Ignore everything in .nascodegraph/ except this file itself, so transient
 # files (the database, daemon.pid, sockets, logs) never show up in git.
 *
 !.gitignore
 `;
 
-/** Header line that prefixes every .gitignore CodeGraph has auto-generated. */
-const GITIGNORE_MARKER = '# CodeGraph data files';
+/** Header line that prefixes every .gitignore NasCodeGraph has auto-generated. */
+const GITIGNORE_MARKER = '# NasCodeGraph data files';
 
 /**
- * Is `content` a stale CodeGraph-generated `.gitignore` that should be
+ * Is `content` a stale NasCodeGraph-generated `.gitignore` that should be
  * regenerated in place? True when it carries our header but predates the
  * wildcard ignore (it has no bare `*` line) — i.e. one of the old explicit
  * allowlists (`*.db`, `cache/`, `.dirty`, …) that never ignored `daemon.pid`
@@ -420,8 +420,8 @@ function isStaleDefaultGitignore(content: string): boolean {
 }
 
 /**
- * Write `.codegraph/.gitignore` if it's absent, or upgrade a stale
- * CodeGraph-generated default in place; a user-customized file is left alone.
+ * Write `.nascodegraph/.gitignore` if it's absent, or upgrade a stale
+ * NasCodeGraph-generated default in place; a user-customized file is left alone.
  * Best-effort — returns `false` only if a needed write failed.
  */
 function ensureGitignore(gitignorePath: string): boolean {
@@ -442,62 +442,62 @@ function ensureGitignore(gitignorePath: string): boolean {
 }
 
 /**
- * Create the .codegraph directory structure
- * Note: Only throws if codegraph.db already exists, not just if .codegraph/ exists.
+ * Create the .nascodegraph directory structure
+ * Note: Only throws if nascodegraph.db already exists, not just if .nascodegraph/ exists.
  */
 export function createDirectory(projectRoot: string): void {
-  const codegraphDir = getCodeGraphDir(projectRoot);
-  const dbPath = path.join(codegraphDir, 'codegraph.db');
+  const nascodegraphDir = getNasCodeGraphDir(projectRoot);
+  const dbPath = path.join(nascodegraphDir, 'nascodegraph.db');
 
-  // Only throw if CodeGraph is actually initialized (db exists)
-  // .codegraph/ folder alone is fine
+  // Only throw if NasCodeGraph is actually initialized (db exists)
+  // .nascodegraph/ folder alone is fine
   if (fs.existsSync(dbPath)) {
-    throw new Error(`CodeGraph already initialized in ${projectRoot}`);
+    throw new Error(`NasCodeGraph already initialized in ${projectRoot}`);
   }
 
   // Create main directory (if it doesn't exist)
-  fs.mkdirSync(codegraphDir, { recursive: true });
+  fs.mkdirSync(nascodegraphDir, { recursive: true });
 
-  // Write .gitignore inside .codegraph (create if absent, upgrade a stale
+  // Write .gitignore inside .nascodegraph (create if absent, upgrade a stale
   // pre-wildcard default left by an older version — issue #788).
-  ensureGitignore(path.join(codegraphDir, '.gitignore'));
+  ensureGitignore(path.join(nascodegraphDir, '.gitignore'));
 }
 
 /**
- * Remove the .codegraph directory
+ * Remove the .nascodegraph directory
  */
 export function removeDirectory(projectRoot: string): void {
-  const codegraphDir = getCodeGraphDir(projectRoot);
+  const nascodegraphDir = getNasCodeGraphDir(projectRoot);
 
-  if (!fs.existsSync(codegraphDir)) {
+  if (!fs.existsSync(nascodegraphDir)) {
     return;
   }
 
-  // Verify .codegraph is a real directory, not a symlink pointing elsewhere
-  const lstat = fs.lstatSync(codegraphDir);
+  // Verify .nascodegraph is a real directory, not a symlink pointing elsewhere
+  const lstat = fs.lstatSync(nascodegraphDir);
   if (lstat.isSymbolicLink()) {
     // Only remove the symlink itself, never follow it for recursive delete
-    fs.unlinkSync(codegraphDir);
+    fs.unlinkSync(nascodegraphDir);
     return;
   }
 
   if (!lstat.isDirectory()) {
     // Not a directory - remove the single file
-    fs.unlinkSync(codegraphDir);
+    fs.unlinkSync(nascodegraphDir);
     return;
   }
 
   // Recursively remove directory
-  fs.rmSync(codegraphDir, { recursive: true, force: true });
+  fs.rmSync(nascodegraphDir, { recursive: true, force: true });
 }
 
 /**
- * Get all files in the .codegraph directory
+ * Get all files in the .nascodegraph directory
  */
 export function listDirectoryContents(projectRoot: string): string[] {
-  const codegraphDir = getCodeGraphDir(projectRoot);
+  const nascodegraphDir = getNasCodeGraphDir(projectRoot);
 
-  if (!fs.existsSync(codegraphDir)) {
+  if (!fs.existsSync(nascodegraphDir)) {
     return [];
   }
 
@@ -509,7 +509,7 @@ export function listDirectoryContents(projectRoot: string): string[] {
     for (const entry of entries) {
       const relativePath = prefix ? `${prefix}/${entry.name}` : entry.name;
 
-      // Skip symlinks to prevent following links outside .codegraph
+      // Skip symlinks to prevent following links outside .nascodegraph
       if (entry.isSymbolicLink()) {
         continue;
       }
@@ -522,17 +522,17 @@ export function listDirectoryContents(projectRoot: string): string[] {
     }
   }
 
-  walkDir(codegraphDir);
+  walkDir(nascodegraphDir);
   return files;
 }
 
 /**
- * Get the total size of the .codegraph directory in bytes
+ * Get the total size of the .nascodegraph directory in bytes
  */
 export function getDirectorySize(projectRoot: string): number {
-  const codegraphDir = getCodeGraphDir(projectRoot);
+  const nascodegraphDir = getNasCodeGraphDir(projectRoot);
 
-  if (!fs.existsSync(codegraphDir)) {
+  if (!fs.existsSync(nascodegraphDir)) {
     return 0;
   }
 
@@ -542,7 +542,7 @@ export function getDirectorySize(projectRoot: string): number {
     const entries = fs.readdirSync(dir, { withFileTypes: true });
 
     for (const entry of entries) {
-      // Skip symlinks to prevent following links outside .codegraph
+      // Skip symlinks to prevent following links outside .nascodegraph
       if (entry.isSymbolicLink()) {
         continue;
       }
@@ -558,19 +558,19 @@ export function getDirectorySize(projectRoot: string): number {
     }
   }
 
-  walkDir(codegraphDir);
+  walkDir(nascodegraphDir);
   return totalSize;
 }
 
 /**
- * Ensure a subdirectory exists within .codegraph
+ * Ensure a subdirectory exists within .nascodegraph
  */
 export function ensureSubdirectory(projectRoot: string, subdirName: string): string {
   if (subdirName.includes('..') || subdirName.includes(path.sep) || subdirName.includes('/')) {
     throw new Error(`Invalid subdirectory name: ${subdirName}`);
   }
 
-  const subdirPath = path.join(getCodeGraphDir(projectRoot), subdirName);
+  const subdirPath = path.join(getNasCodeGraphDir(projectRoot), subdirName);
 
   if (!fs.existsSync(subdirPath)) {
     fs.mkdirSync(subdirPath, { recursive: true });
@@ -580,34 +580,34 @@ export function ensureSubdirectory(projectRoot: string, subdirName: string): str
 }
 
 /**
- * Check if the .codegraph directory has valid structure
+ * Check if the .nascodegraph directory has valid structure
  */
 export function validateDirectory(projectRoot: string): {
   valid: boolean;
   errors: string[];
 } {
   const errors: string[] = [];
-  const codegraphDir = getCodeGraphDir(projectRoot);
+  const nascodegraphDir = getNasCodeGraphDir(projectRoot);
 
-  if (!fs.existsSync(codegraphDir)) {
-    errors.push('CodeGraph directory does not exist');
+  if (!fs.existsSync(nascodegraphDir)) {
+    errors.push('NasCodeGraph directory does not exist');
     return { valid: false, errors };
   }
 
-  if (!fs.statSync(codegraphDir).isDirectory()) {
-    errors.push('.codegraph exists but is not a directory');
+  if (!fs.statSync(nascodegraphDir).isDirectory()) {
+    errors.push('.nascodegraph exists but is not a directory');
     return { valid: false, errors };
   }
 
   // Auto-repair / upgrade .gitignore (non-critical file). A missing one is
   // recreated; a stale pre-wildcard default that never ignored daemon.pid is
   // regenerated in place (issue #788); a user-authored file is left alone.
-  const gitignorePath = path.join(codegraphDir, '.gitignore');
+  const gitignorePath = path.join(nascodegraphDir, '.gitignore');
   const existedBefore = fs.existsSync(gitignorePath);
   if (!ensureGitignore(gitignorePath) && !existedBefore) {
     // Only a missing-and-uncreatable file is surfaced; a failed in-place
     // upgrade of an existing file is non-fatal — the index still works.
-    errors.push('.gitignore missing in .codegraph directory and could not be created');
+    errors.push('.gitignore missing in .nascodegraph directory and could not be created');
   }
 
   return {

@@ -1,7 +1,7 @@
 /**
- * `codegraph node` argument handling (#1044).
+ * `nascodegraph node` argument handling (#1044).
  *
- * File-read mode (`codegraph node -f <file>`) carries no symbol name, but the
+ * File-read mode (`nascodegraph node -f <file>`) carries no symbol name, but the
  * command was defined with a REQUIRED `<name>` positional, so commander.js
  * rejected the call with "missing required argument 'name'" before the action
  * ever ran — making file mode unreachable from the CLI. `name` is now optional
@@ -15,15 +15,15 @@ import { execFileSync } from 'child_process';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { CodeGraph } from '../src';
+import { NasCodeGraph } from '../src';
 
-const BIN = path.resolve(__dirname, '../dist/bin/codegraph.js');
+const BIN = path.resolve(__dirname, '../dist/bin/nascodegraph.js');
 
 function runNode(cwd: string, extraArgs: string[]): { stdout: string; stderr: string; code: number } {
   try {
     const stdout = execFileSync(process.execPath, [BIN, 'node', ...extraArgs, '-p', cwd], {
       encoding: 'utf-8',
-      env: { ...process.env, CODEGRAPH_NO_DAEMON: '1', CODEGRAPH_WASM_RELAUNCHED: '1' },
+      env: { ...process.env, NASTECHGRAPH_NO_DAEMON: '1', NASTECHGRAPH_WASM_RELAUNCHED: '1' },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     return { stdout, stderr: '', code: 0 };
@@ -32,14 +32,14 @@ function runNode(cwd: string, extraArgs: string[]): { stdout: string; stderr: st
   }
 }
 
-describe('codegraph node — argument handling (#1044)', () => {
+describe('nascodegraph node — argument handling (#1044)', () => {
   let tempDir: string;
 
   beforeEach(async () => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-node-cmd-'));
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nascodegraph-node-cmd-'));
     fs.mkdirSync(path.join(tempDir, 'src'));
     fs.writeFileSync(path.join(tempDir, 'src/util.ts'), 'export function util(x: number){ return x + 1; }\n');
-    const cg = CodeGraph.initSync(tempDir);
+    const cg = NasCodeGraph.initSync(tempDir);
     await cg.indexAll();
     cg.close();
   });
