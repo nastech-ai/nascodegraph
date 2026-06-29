@@ -37,20 +37,20 @@ function setHome(dir: string): { restore: () => void } {
     USERPROFILE: process.env.USERPROFILE,
     APPDATA: process.env.APPDATA,
     XDG_CONFIG_HOME: process.env.XDG_CONFIG_HOME,
-    HERMES_HOME: process.env.HERMES_HOME,
+    NASTECH_HOME: process.env.NASTECH_HOME,
   };
   process.env.HOME = dir;
   process.env.USERPROFILE = dir;
   process.env.APPDATA = path.join(dir, '.config');
   process.env.XDG_CONFIG_HOME = path.join(dir, '.config');
-  delete process.env.HERMES_HOME;
+  delete process.env.NASTECH_HOME;
   return {
     restore() {
       if (prev.HOME === undefined) delete process.env.HOME; else process.env.HOME = prev.HOME;
       if (prev.USERPROFILE === undefined) delete process.env.USERPROFILE; else process.env.USERPROFILE = prev.USERPROFILE;
       if (prev.APPDATA === undefined) delete process.env.APPDATA; else process.env.APPDATA = prev.APPDATA;
       if (prev.XDG_CONFIG_HOME === undefined) delete process.env.XDG_CONFIG_HOME; else process.env.XDG_CONFIG_HOME = prev.XDG_CONFIG_HOME;
-      if (prev.HERMES_HOME === undefined) delete process.env.HERMES_HOME; else process.env.HERMES_HOME = prev.HERMES_HOME;
+      if (prev.NASTECH_HOME === undefined) delete process.env.NASTECH_HOME; else process.env.NASTECH_HOME = prev.NASTECH_HOME;
     },
   };
 }
@@ -699,9 +699,9 @@ describe('Installer targets — partial-state idempotency', () => {
     expect(cliAfter.mcpServers.codegraph).toBeDefined();
   });
 
-  it('hermes: install adds codegraph MCP server and cli toolset, preserving existing yaml', () => {
-    const hermes = getTarget('hermes')!;
-    const config = path.join(tmpHome, '.hermes', 'config.yaml');
+  it(.nastech: install adds codegraph MCP server and cli toolset, preserving existing yaml', () => {
+    const.nastech = getTarget('nastech')!;
+    const config = path.join(tmpHome, '.nastech', 'config.yaml');
     fs.mkdirSync(path.dirname(config), { recursive: true });
     fs.writeFileSync(config, [
       'model:',
@@ -711,35 +711,35 @@ describe('Installer targets — partial-state idempotency', () => {
       '    command: other',
       'platform_toolsets:',
       '  cli:',
-      '    - hermes-cli',
+      '    - nastech-cli',
       '  discord:',
-      '    - hermes-discord',
+      '    - nastech-discord',
       '',
     ].join('\n'));
 
-    const result = hermes.install('global', { autoAllow: true });
+    const result =.nastech.install('global', { autoAllow: true });
     expect(result.files[0].action).toBe('updated');
     const body = fs.readFileSync(config, 'utf-8');
     expect(body).toContain('model:\n  default: qwen-3.7');
     expect(body).toContain('mcp_servers:\n  other:\n    command: other');
     expect(body).toContain('  codegraph:\n    command: codegraph');
-    expect(body).toContain('    - hermes-cli');
+    expect(body).toContain('    - nastech-cli');
     expect(body).toContain('    - mcp-codegraph');
-    expect(body).toContain('  discord:\n    - hermes-discord');
+    expect(body).toContain('  discord:\n    - nastech-discord');
 
-    const second = hermes.install('global', { autoAllow: true });
+    const second =.nastech.install('global', { autoAllow: true });
     expect(second.files[0].action).toBe('unchanged');
   });
 
-  it('hermes: uninstall removes only codegraph MCP server and toolset entry', () => {
-    const hermes = getTarget('hermes')!;
-    const config = path.join(tmpHome, '.hermes', 'config.yaml');
+  it(.nastech: uninstall removes only codegraph MCP server and toolset entry', () => {
+    const.nastech = getTarget('nastech')!;
+    const config = path.join(tmpHome, '.nastech', 'config.yaml');
     fs.mkdirSync(path.dirname(config), { recursive: true });
 
-    hermes.install('global', { autoAllow: true });
+   .nastech.install('global', { autoAllow: true });
     fs.appendFileSync(config, 'custom:\n  keep: true\n');
 
-    hermes.uninstall('global');
+   .nastech.uninstall('global');
     const body = fs.readFileSync(config, 'utf-8');
     expect(body).not.toContain('codegraph:');
     expect(body).not.toContain('mcp-codegraph');
@@ -747,83 +747,83 @@ describe('Installer targets — partial-state idempotency', () => {
   });
 
   // Regression for #456: PyYAML's default block style writes list items at the
-  // SAME indent as the parent key (`cli:` and its `- hermes-cli` are both at
+  // SAME indent as the parent key (`cli:` and its `- nastech-cli` are both at
   // indent 2). The pre-fix line-based patcher mistook that first list item for
   // the next sibling key, truncated the cli block, and spliced `- mcp-codegraph`
   // at indent 4 BEFORE the existing items — producing unparseable YAML.
-  it('hermes: install preserves PyYAML-default list-at-same-indent style (issue #456)', () => {
-    const hermes = getTarget('hermes')!;
-    const config = path.join(tmpHome, '.hermes', 'config.yaml');
+  it(.nastech: install preserves PyYAML-default list-at-same-indent style (issue #456)', () => {
+    const.nastech = getTarget('nastech')!;
+    const config = path.join(tmpHome, '.nastech', 'config.yaml');
     fs.mkdirSync(path.dirname(config), { recursive: true });
     const original = [
       'model:',
       '  default: gpt-4o',
       'platform_toolsets:',
       '  cli:',
-      '  - hermes-cli',
+      '  - nastech-cli',
       '  - browser',
       '  - clarify',
       '  - terminal',
       '  - web',
       '  telegram:',
-      '  - hermes-telegram',
+      '  -.nastech-telegram',
       '  discord:',
-      '  - hermes-discord',
+      '  - nastech-discord',
       '',
     ].join('\n');
     fs.writeFileSync(config, original);
 
-    hermes.install('global', { autoAllow: true });
+   .nastech.install('global', { autoAllow: true });
     const body = fs.readFileSync(config, 'utf-8');
 
     // mcp-codegraph appended at the same 2-space indent as existing items
     expect(body).toContain('\n  - mcp-codegraph\n');
-    // hermes-cli preserved
-    expect(body).toContain('\n  - hermes-cli\n');
+    // nastech-cli preserved
+    expect(body).toContain('\n  - nastech-cli\n');
     // Sibling sections kept their indent — `telegram:` is still a key under
     // platform_toolsets, not promoted up.
-    expect(body).toContain('\n  telegram:\n  - hermes-telegram\n');
-    expect(body).toContain('\n  discord:\n  - hermes-discord\n');
+    expect(body).toContain('\n  telegram:\n  -.nastech-telegram\n');
+    expect(body).toContain('\n  discord:\n  - nastech-discord\n');
     // No list items leaked to the platform_toolsets level (indent 0).
     expect(body).not.toMatch(/^- browser/m);
-    expect(body).not.toMatch(/^- hermes-telegram/m);
+    expect(body).not.toMatch(/^-.nastech-telegram/m);
 
     // The whole platform_toolsets block extracted by line search should
     // start with `cli:` and not contain a stray 4-space `mcp-codegraph`
     // appearing before the rest of the existing items.
-    expect(body).toContain('  cli:\n  - hermes-cli\n  - browser');
+    expect(body).toContain('  cli:\n  - nastech-cli\n  - browser');
 
     // Idempotent
-    const second = hermes.install('global', { autoAllow: true });
+    const second =.nastech.install('global', { autoAllow: true });
     expect(second.files[0]?.action).toBe('unchanged');
   });
 
-  it('hermes: uninstall reverses the install on a PyYAML-default config', () => {
-    const hermes = getTarget('hermes')!;
-    const config = path.join(tmpHome, '.hermes', 'config.yaml');
+  it(.nastech: uninstall reverses the install on a PyYAML-default config', () => {
+    const.nastech = getTarget('nastech')!;
+    const config = path.join(tmpHome, '.nastech', 'config.yaml');
     fs.mkdirSync(path.dirname(config), { recursive: true });
     const original = [
       'platform_toolsets:',
       '  cli:',
-      '  - hermes-cli',
+      '  - nastech-cli',
       '  - browser',
       '  telegram:',
-      '  - hermes-telegram',
+      '  -.nastech-telegram',
       '',
     ].join('\n');
     fs.writeFileSync(config, original);
 
-    hermes.install('global', { autoAllow: true });
+   .nastech.install('global', { autoAllow: true });
     const installed = fs.readFileSync(config, 'utf-8');
     expect(installed).toContain('- mcp-codegraph');
     expect(installed).toContain('codegraph:');
 
-    hermes.uninstall('global');
+   .nastech.uninstall('global');
     const body = fs.readFileSync(config, 'utf-8');
     expect(body).not.toContain('mcp-codegraph');
     expect(body).not.toContain('command: codegraph');
-    expect(body).toContain('  cli:\n  - hermes-cli\n  - browser');
-    expect(body).toContain('  telegram:\n  - hermes-telegram');
+    expect(body).toContain('  cli:\n  - nastech-cli\n  - browser');
+    expect(body).toContain('  telegram:\n  -.nastech-telegram');
   });
 
   it('opencode: uninstall removes only mcp.codegraph, preserves comments and siblings', () => {
@@ -1183,7 +1183,7 @@ describe('Installer targets — registry', () => {
     expect(getTarget('cursor')?.id).toBe('cursor');
     expect(getTarget('codex')?.id).toBe('codex');
     expect(getTarget('opencode')?.id).toBe('opencode');
-    expect(getTarget('hermes')?.id).toBe('hermes');
+    expect(getTarget('nastech')?.id).toBe(.nastech');
     expect(getTarget('gemini')?.id).toBe('gemini');
     expect(getTarget('antigravity')?.id).toBe('antigravity');
     expect(getTarget('kiro')?.id).toBe('kiro');

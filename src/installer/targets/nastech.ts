@@ -1,14 +1,14 @@
 /**
- * Hermes Agent target.
+ * NasTech Agent target.
  *
- * Hermes reads MCP servers from `$HERMES_HOME/config.yaml` under the
+ * NasTech reads MCP servers from `$NASTECH_HOME/config.yaml` under the
  * top-level `mcp_servers` key, and exposes discovered MCP tools through
  * dynamic toolsets named `mcp-<server>`. We add:
  *
  *   mcp_servers.codegraph -> `codegraph serve --mcp`
  *   platform_toolsets.cli -> `mcp-codegraph`
  *
- * The second entry matters because Hermes CLI profiles often enable an
+ * The second entry matters because NasTech CLI profiles often enable an
  * explicit `platform_toolsets.cli` list. Without `mcp-codegraph` in that
  * list, the MCP server can be configured and connected but its tools may
  * still be filtered out of normal CLI sessions.
@@ -28,10 +28,10 @@ import { atomicWriteFileSync } from './shared';
 
 type LineRange = { start: number; end: number };
 
-class HermesTarget implements AgentTarget {
-  readonly id = 'hermes' as const;
-  readonly displayName = 'Hermes Agent';
-  readonly docsUrl = 'https://hermes-agent.nousresearch.com';
+class NastechTarget implements AgentTarget {
+  readonly id = 'nastech' as const;
+  readonly displayName = 'NasTech Agent';
+  readonly docsUrl = 'https://nastech-agent.nastechai.com';
 
   supportsLocation(loc: Location): boolean {
     return loc === 'global';
@@ -43,7 +43,7 @@ class HermesTarget implements AgentTarget {
     }
     const file = configPath();
     const content = readText(file);
-    const installed = fs.existsSync(hermesHome()) || fs.existsSync(file);
+    const installed = fs.existsSync(nastechHome()) || fs.existsSync(file);
     return {
       installed,
       alreadyConfigured: hasCodeGraphMcpServer(content),
@@ -55,12 +55,12 @@ class HermesTarget implements AgentTarget {
     if (loc !== 'global') {
       return {
         files: [],
-        notes: ['Hermes Agent uses $HERMES_HOME/config.yaml; re-run with --location=global.'],
+        notes: ['NasTech Agent uses $NASTECH_HOME/config.yaml; re-run with --location=global.'],
       };
     }
     return {
-      files: [writeHermesConfig()],
-      notes: ['Start a new Hermes session for MCP changes to take effect.'],
+      files: [writeNasTechConfig()],
+      notes: ['Start a new NasTech session for MCP changes to take effect.'],
     };
   }
 
@@ -82,7 +82,7 @@ class HermesTarget implements AgentTarget {
 
   printConfig(loc: Location): string {
     if (loc !== 'global') {
-      return '# Hermes Agent uses $HERMES_HOME/config.yaml; use --location=global.\n';
+      return '# NasTech Agent uses $NASTECH_HOME/config.yaml; use --location=global.\n';
     }
     return [
       `# Add to ${configPath()}`,
@@ -91,7 +91,7 @@ class HermesTarget implements AgentTarget {
       '',
       'platform_toolsets:',
       '  cli:',
-      '    - hermes-cli',
+      '    - nastech-cli',
       '    - mcp-codegraph',
       '',
     ].join('\n');
@@ -102,14 +102,14 @@ class HermesTarget implements AgentTarget {
   }
 }
 
-function hermesHome(): string {
-  return process.env.HERMES_HOME
-    ? path.resolve(process.env.HERMES_HOME)
-    : path.join(os.homedir(), '.hermes');
+function nastechHome(): string {
+  return process.env.NASTECH_HOME
+    ? path.resolve(process.env.NASTECH_HOME)
+    : path.join(os.homedir(), '.nastech');
 }
 
 function configPath(): string {
-  return path.join(hermesHome(), 'config.yaml');
+  return path.join(nastechHome(), 'config.yaml');
 }
 
 function readText(file: string): string {
@@ -120,7 +120,7 @@ function readText(file: string): string {
   }
 }
 
-function writeHermesConfig(): WriteResult['files'][number] {
+function writeNasTechConfig(): WriteResult['files'][number] {
   const file = configPath();
   const existed = fs.existsSync(file);
   const before = readText(file);
@@ -195,10 +195,10 @@ function childRange(lines: string[], parent: LineRange, child: string): LineRang
  * serialization, where list items sit at the SAME indent as the parent key:
  *
  *     cli:
- *     - hermes-cli       # indent 2 — belongs to cli, not a sibling
+ *     - nastech-cli       # indent 2 — belongs to cli, not a sibling
  *     - browser
  *
- * `childRange`'s `^  \S` heuristic mistakes that first `  - hermes-cli` line
+ * `childRange`'s `^  \S` heuristic mistakes that first `  - nastech-cli` line
  * for the next sibling key and truncates the block, causing inserts to land
  * before the existing items at a different indent (issue #456). This helper
  * recognizes a `  - ` line as part of the block instead, and reports back
@@ -313,12 +313,12 @@ function upsertCodeGraphToolset(content: string): string {
   if (!parent) {
     if (lines.length > 0 && lines[lines.length - 1] === '') lines.pop();
     if (lines.length > 0) lines.push('');
-    lines.push('platform_toolsets:', '  cli:', '    - hermes-cli', '    - mcp-codegraph');
+    lines.push('platform_toolsets:', '  cli:', '    - nastech-cli', '    - mcp-codegraph');
     return joinLines(lines);
   }
 
   if (!cli) {
-    lines.splice(parent.end, 0, '  cli:', '    - hermes-cli', '    - mcp-codegraph');
+    lines.splice(parent.end, 0, '  cli:', '    - nastech-cli', '    - mcp-codegraph');
     return joinLines(lines);
   }
 
@@ -353,4 +353,4 @@ function arrayEqual(a: string[], b: string[]): boolean {
   return a.length === b.length && a.every((value, idx) => value === b[idx]);
 }
 
-export const hermesTarget: AgentTarget = new HermesTarget();
+export const nastechTarget: AgentTarget = new NastechTarget();
