@@ -21,7 +21,7 @@ HARNESS="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$HARNESS/../.." && pwd)"     # nascodegraph repo root
 CORPUS="${CORPUS:-/tmp/nascodegraph-corpus}"
 REPO="$CORPUS/$NAME"
-PKG="@nastech-ai/nasnascodegraph"
+PKG="@nastech-ai/nascodegraph"
 
 echo "==================== NasCodeGraph audit ===================="
 echo "version=$VERSION  repo=$NAME  mode=$MODE  corpus=$CORPUS"

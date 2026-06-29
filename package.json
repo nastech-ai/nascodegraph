@@ -1,7 +1,7 @@
 {
-  "name": "@nastechai/nasnascodegraph",
+  "name": "@nastechai/nascodegraph",
   "version": "1.1.4",
-  "description": "NasNasCodeGraph — Supercharge NasTech Agent with semantic code intelligence — surgical context, fewer tool calls, faster answers. 100% local.",
+  "description": "NasCodeGraph — Supercharge NasTech Agent with semantic code intelligence — surgical context, fewer tool calls, faster answers. 100% local.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
@@ -33,9 +33,9 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/nastech-ai/nasnascodegraph.git"
+    "url": "https://github.com/nastech-ai/nascodegraph.git"
   },
-  "homepage": "https://github.com/nastech-ai/nasnascodegraph#readme",
+  "homepage": "https://github.com/nastech-ai/nascodegraph#readme",
   "dependencies": {
     "@clack/prompts": "^1.3.0",
     "commander": "^14.0.2",

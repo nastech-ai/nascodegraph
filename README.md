@@ -12,9 +12,9 @@ Follow [@getnascodegraph](https://x.com/getnascodegraph) on X for updates.
 
 **Surgical context · fewer tool calls · faster answers · 100% local**
 
-### [Documentation & Website →](https://nastech-ai.github.io/nasnascodegraph/)
+### [Documentation & Website →](https://nastech-ai.github.io/nascodegraph/)
 
-[![npm version](https://img.shields.io/npm/v/@nastech-ai/nasnascodegraph.svg)](https://www.npmjs.com/package/@nastech-ai/nasnascodegraph)
+[![npm version](https://img.shields.io/npm/v/@nastech-ai/nascodegraph.svg)](https://www.npmjs.com/package/@nastech-ai/nascodegraph)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Self-contained](https://img.shields.io/badge/Node.js-bundled%20%C2%B7%20none%20required-brightgreen.svg)](https://nodejs.org/)
 
@@ -35,7 +35,7 @@ Follow [@getnascodegraph](https://x.com/getnascodegraph) on X for updates.
 
 **The NasCodeGraph platform is coming** — for every PR, know exactly what to test, what could break, which flows are affected, and whether business logic is compromised.
 
-<a href="https://getnascodegraph.com"><img alt="Join the waitlist for early beta access" src="https://raw.githubusercontent.com/nastech-ai/nasnascodegraph/main/assets/waitlist.svg?v=2" height="52"></a>
+<a href="https://getnascodegraph.com"><img alt="Join the waitlist for early beta access" src="https://raw.githubusercontent.com/nastech-ai/nascodegraph/main/assets/waitlist.svg?v=2" height="52"></a>
 
 <sub>Get <b>early beta access</b> to the hosted product · <a href="https://getnascodegraph.com">getnascodegraph.com</a></sub>
 
@@ -49,17 +49,17 @@ Follow [@getnascodegraph](https://x.com/getnascodegraph) on X for updates.
 
 ```bash
 # macOS / Linux
-curl -fsSL https://raw.githubusercontent.com/nastech-ai/nasnascodegraph/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/nastech-ai/nascodegraph/main/install.sh | sh
 
 # Windows (PowerShell)
-irm https://raw.githubusercontent.com/nastech-ai/nasnascodegraph/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/nastech-ai/nascodegraph/main/install.ps1 | iex
 ```
 
 <details>
 <summary><b>Already have Node? Use npm instead (works on any version)</b></summary>
 
 ```bash
-npm i -g @nastech-ai/nasnascodegraph
+npm i -g @nastech-ai/nascodegraph
 ```
 
 <sub>NasCodeGraph bundles its own runtime — nothing to compile, no native build, works the same everywhere. The installer puts `nascodegraph` on your PATH but **doesn't change your current shell** — open a new terminal before the next step so the command resolves.</sub>
@@ -76,7 +76,7 @@ In a **new terminal**, run the installer to connect NasCodeGraph to the agents y
 nascodegraph install
 ```
 
-<sub>Detects and auto-configures Claude Code, Cursor, Codex CLI, opencode, NasTech Agent, Gemini CLI, Antigravity IDE, and Kiro — wiring the NasCodeGraph MCP server into each. **This is the step that connects NasCodeGraph to your agent;** installing the CLI in step 1 does not do it on its own. It only wires up your agent — it does **not** index any code; building each project's graph is the separate `nascodegraph init` in step 3. (Shortcut: `npx @nastech-ai/nasnascodegraph` downloads and runs this in one go.)</sub>
+<sub>Detects and auto-configures Claude Code, Cursor, Codex CLI, opencode, NasTech Agent, Gemini CLI, Antigravity IDE, and Kiro — wiring the NasCodeGraph MCP server into each. **This is the step that connects NasCodeGraph to your agent;** installing the CLI in step 1 does not do it on its own. It only wires up your agent — it does **not** index any code; building each project's graph is the separate `nascodegraph init` in step 3. (Shortcut: `npx @nastech-ai/nascodegraph` downloads and runs this in one go.)</sub>
 
 ### 3. Initialize each project
 
@@ -272,7 +272,7 @@ agent writes src/Widget.ts
 
 The handful of cases where manual `nascodegraph sync` makes sense: the watcher is disabled (sandboxed environments, or `NASTECHGRAPH_NO_DAEMON=1`), or you're scripting against the index outside an agent session and want a pre-flight sync at the start of your script.
 
-→ Full deep-dive in [Guides → Indexing a Project](https://nastech-ai.github.io/nasnascodegraph/guides/indexing/#stay-fresh-automatically).
+→ Full deep-dive in [Guides → Indexing a Project](https://nastech-ai.github.io/nascodegraph/guides/indexing/#stay-fresh-automatically).
 
 </details>
 
@@ -338,7 +338,7 @@ Each bridge emits edges tagged `provenance:'heuristic'` with `metadata.synthesiz
 ### 1. Run the Installer
 
 ```bash
-npx @nastech-ai/nasnascodegraph
+npx @nastech-ai/nascodegraph
 ```
 
 The installer will:
@@ -387,7 +387,7 @@ That's it — your agent will use NasCodeGraph tools automatically when a `.nasc
 
 **Install globally:**
 ```bash
-npm install -g @nastech-ai/nasnascodegraph
+npm install -g @nastech-ai/nascodegraph
 ```
 
 **Add to `~/.claude.json`:**
@@ -545,9 +545,9 @@ API, so both `import` and `require` resolve the `NasCodeGraph` class in your own
 process — handy for embedding it in an app (e.g. an Electron main process).
 
 ```typescript
-import NasCodeGraph from '@nastech-ai/nasnascodegraph';
+import NasCodeGraph from '@nastech-ai/nascodegraph';
 // CommonJS works too:
-//   const { NasCodeGraph } = require('@nastech-ai/nasnascodegraph');
+//   const { NasCodeGraph } = require('@nastech-ai/nascodegraph');
 
 const cg = await NasCodeGraph.init('/path/to/project');
 // Or: const cg = await NasCodeGraph.open('/path/to/project');
@@ -572,7 +572,7 @@ that drive the graph directly: `DatabaseConnection`, `QueryBuilder`,
 
 **Embedding requirements**
 
-- Install from npm (`npm i @nastech-ai/nasnascodegraph`) so the matching
+- Install from npm (`npm i @nastech-ai/nascodegraph`) so the matching
   per-platform package — which carries the compiled library and its
   dependencies — is fetched alongside the shim.
 - The API runs on **your** runtime, so it needs **Node 22.5+** for the built-in
@@ -754,7 +754,7 @@ Framework routing is validated the same way, on a canonical app per framework: E
 
 **MCP hits `database is locked`** — current builds shouldn't: NasCodeGraph bundles its own Node runtime and uses Node's built-in `node:sqlite` in WAL mode, where concurrent reads never block on a writer. If you still see it:
 
-- **You're on an old (pre-0.9) install.** Reinstall to get the bundled runtime — `curl -fsSL https://raw.githubusercontent.com/nastech-ai/nasnascodegraph/main/install.sh | sh` (macOS/Linux), `irm https://raw.githubusercontent.com/nastech-ai/nasnascodegraph/main/install.ps1 | iex` (Windows), or `npm i -g @nastech-ai/nasnascodegraph@latest`.
+- **You're on an old (pre-0.9) install.** Reinstall to get the bundled runtime — `curl -fsSL https://raw.githubusercontent.com/nastech-ai/nascodegraph/main/install.sh | sh` (macOS/Linux), `irm https://raw.githubusercontent.com/nastech-ai/nascodegraph/main/install.ps1 | iex` (Windows), or `npm i -g @nastech-ai/nascodegraph@latest`.
 - **`nascodegraph status` shows `Journal:` other than `wal`** — WAL couldn't be enabled on this filesystem (common on network shares and WSL2 `/mnt`), so reads can block on writes. Move the project (with its `.nascodegraph/` folder) onto a local disk.
 
 **MCP server not connecting** — Your agent starts the server itself, so you don't launch it by hand. Make sure the project is initialized and indexed (`nascodegraph status`) and that the path in your MCP config is correct. If it still won't connect, re-run `nascodegraph install` to rewrite the config.
@@ -767,11 +767,11 @@ Framework routing is validated the same way, on a canonical app per framework: E
 
 ## Star History
 
-<a href="https://www.star-history.com/?repos=nastech-ai%2Fnasnascodegraph&type=date&legend=top-left">
+<a href="https://www.star-history.com/?repos=nastech-ai%2Fnascodegraph&type=date&legend=top-left">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=nastech-ai/nasnascodegraph&type=date&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=nastech-ai/nasnascodegraph&type=date&legend=top-left" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=nastech-ai/nasnascodegraph&type=date&legend=top-left" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=nastech-ai/nascodegraph&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=nastech-ai/nascodegraph&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=nastech-ai/nascodegraph&type=date&legend=top-left" />
  </picture>
 </a>
 
@@ -785,6 +785,6 @@ MIT
 
 **Made for AI coding agents — Claude Code, Cursor, Codex CLI, opencode, NasTech Agent, Gemini CLI, Antigravity IDE, and Kiro**
 
-[Report Bug](https://github.com/nastech-ai/nasnascodegraph/issues) · [Request Feature](https://github.com/nastech-ai/nasnascodegraph/issues)
+[Report Bug](https://github.com/nastech-ai/nascodegraph/issues) · [Request Feature](https://github.com/nastech-ai/nascodegraph/issues)
 
 </div>

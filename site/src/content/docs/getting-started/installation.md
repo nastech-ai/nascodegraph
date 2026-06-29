@@ -6,7 +6,7 @@ description: Install NasCodeGraph and configure your AI coding agents.
 ## 1. Run the installer
 
 ```bash
-npx @nastech-ai/nasnascodegraph
+npx @nastech-ai/nascodegraph
 ```
 
 The installer will:

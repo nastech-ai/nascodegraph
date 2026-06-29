@@ -5,7 +5,7 @@
 # Produces, under release/npm/:
 #   nascodegraph-<target>/   one per built bundle — the vendored Node + app, tagged
 #                         with os/cpu so npm installs only the matching one.
-#   main/                 the @nastech-ai/nasnascodegraph shim package: a tiny bin
+#   main/                 the @nastech-ai/nascodegraph shim package: a tiny bin
 #                         that execs the matching platform bundle, with every
 #                         platform package in optionalDependencies.
 #

@@ -6,7 +6,7 @@
 # GitHub Releases. No Node.js, no build tools, no npm required — ideal for a
 # fresh Linux VPS over SSH.
 #
-#   curl -fsSL https://raw.githubusercontent.com/nastech-ai/nasnascodegraph/main/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/nastech-ai/nascodegraph/main/install.sh | sh
 #
 # Upgrade:   run `nascodegraph upgrade` (or just re-run the same command).
 # Uninstall: curl -fsSL .../install.sh | sh -s -- --uninstall
@@ -17,7 +17,7 @@
 #   NASTECHGRAPH_BIN_DIR      symlink location  (default: ~/.local/bin)
 set -eu
 
-REPO="nastech-ai/nasnascodegraph"
+REPO="nastech-ai/nascodegraph"
 INSTALL_DIR="${NASTECHGRAPH_INSTALL_DIR:-$HOME/.nascodegraph}"
 BIN_DIR="${NASTECHGRAPH_BIN_DIR:-$HOME/.local/bin}"
 

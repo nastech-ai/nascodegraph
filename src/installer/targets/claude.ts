@@ -279,7 +279,7 @@ function cleanupLegacyLocalMcp(): WriteResult['files'][number] | null {
  * a pre-0.8 install wrote. Those installers added
  * `PostToolUse(Edit|Write) → nascodegraph mark-dirty` and
  * `Stop → nascodegraph sync-if-dirty` (local builds used the
- * `npx @nastech-ai/nasnascodegraph …` form, which still contains the
+ * `npx @nastech-ai/nascodegraph …` form, which still contains the
  * `nascodegraph <subcommand>` substring). Both subcommands were later
  * removed from the CLI, so the Stop hook fails every turn with
  * "unknown command 'sync-if-dirty'". Matching on the nascodegraph-scoped
@@ -297,7 +297,7 @@ function isLegacyCodegraphHookCommand(command: unknown): boolean {
 /**
  * The front-load prompt-hook command the installer writes into Claude's
  * `UserPromptSubmit` (see writePromptHookEntry). Matched by substring so an
- * `npx @nastech-ai/nasnascodegraph prompt-hook` form is recognized too.
+ * `npx @nastech-ai/nascodegraph prompt-hook` form is recognized too.
  */
 const PROMPT_HOOK_COMMAND = 'nascodegraph prompt-hook';
 function isPromptHookCommand(command: unknown): boolean {

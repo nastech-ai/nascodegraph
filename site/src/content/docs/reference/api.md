@@ -6,7 +6,7 @@ description: Use NasCodeGraph as a TypeScript library.
 NasCodeGraph ships a TypeScript API. The public surface is the `NasCodeGraph` class.
 
 ```typescript
-import NasCodeGraph from '@nastech-ai/nasnascodegraph';
+import NasCodeGraph from '@nastech-ai/nascodegraph';
 
 const cg = await NasCodeGraph.init('/path/to/project');
 // Or open an existing index:
@@ -44,7 +44,7 @@ cg.close();
 | `watch()` / `unwatch()` | Start / stop the file watcher |
 | `close()` | Close the database connection |
 
-CommonJS works too — `const { NasCodeGraph } = require('@nastech-ai/nasnascodegraph');`.
+CommonJS works too — `const { NasCodeGraph } = require('@nastech-ai/nascodegraph');`.
 
 ## Lower-level building blocks
 
@@ -59,11 +59,11 @@ import {
   initGrammars,
   loadGrammarsForLanguages,
   FileLock,
-} from '@nastech-ai/nasnascodegraph';
+} from '@nastech-ai/nascodegraph';
 ```
 
 ## Embedding requirements
 
-- **Install from npm** (`npm i @nastech-ai/nasnascodegraph`) so the matching per-platform package — which carries the compiled library — is fetched alongside the shim.
+- **Install from npm** (`npm i @nastech-ai/nascodegraph`) so the matching per-platform package — which carries the compiled library — is fetched alongside the shim.
 - The API runs on **your** runtime, so it needs **Node 22.5+** for the built-in `node:sqlite` module (an Electron main process qualifies when its bundled Node is 22.5+). The CLI and MCP server are unaffected — they ship with a self-contained bundled runtime and need no Node at all.
 - TypeScript types ship with the package. Keep `@types/node` available and `skipLibCheck: true` (the common default).

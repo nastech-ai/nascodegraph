@@ -11,13 +11,13 @@ No Node.js required — one command grabs the right build for your OS:
 
 ```bash
 # macOS / Linux
-curl -fsSL https://raw.githubusercontent.com/nastech-ai/nasnascodegraph/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/nastech-ai/nascodegraph/main/install.sh | sh
 
 # Windows (PowerShell)
-irm https://raw.githubusercontent.com/nastech-ai/nasnascodegraph/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/nastech-ai/nascodegraph/main/install.ps1 | iex
 ```
 
-Already have Node? `npm i -g @nastech-ai/nasnascodegraph` works on any version. NasCodeGraph bundles its own runtime — nothing to compile, no native build, works the same everywhere. The installer puts `nascodegraph` on your `PATH` but doesn't change your current shell — open a new terminal before the next step.
+Already have Node? `npm i -g @nastech-ai/nascodegraph` works on any version. NasCodeGraph bundles its own runtime — nothing to compile, no native build, works the same everywhere. The installer puts `nascodegraph` on your `PATH` but doesn't change your current shell — open a new terminal before the next step.
 
 ## 2. Wire up your agent(s)
 
@@ -25,7 +25,7 @@ Already have Node? `npm i -g @nastech-ai/nasnascodegraph` works on any version. 
 nascodegraph install
 ```
 
-Auto-detects and configures Claude Code, Cursor, Codex CLI, opencode, NasTech Agent, Gemini CLI, Antigravity IDE, and Kiro — wiring the NasCodeGraph MCP server into each. This step connects your agents only; it does **not** index any code. (Shortcut: `npx @nastech-ai/nasnascodegraph` downloads and runs the installer in one go.)
+Auto-detects and configures Claude Code, Cursor, Codex CLI, opencode, NasTech Agent, Gemini CLI, Antigravity IDE, and Kiro — wiring the NasCodeGraph MCP server into each. This step connects your agents only; it does **not** index any code. (Shortcut: `npx @nastech-ai/nascodegraph` downloads and runs the installer in one go.)
 
 ## 3. Initialize each project
 
