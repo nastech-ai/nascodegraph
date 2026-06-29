@@ -63,26 +63,32 @@ fi
 # Release tags are vX.Y.Z; accept a bare X.Y.Z in NASTECHGRAPH_VERSION too.
 case "$version" in v*) ;; *) version="v$version" ;; esac
 
-# 3. Download + extract the bundle.
+# 3. Download + extract the bundle (fallback to npm if no release binary).
 url="https://github.com/$REPO/releases/download/$version/nascodegraph-${target}.tar.gz"
 echo "Installing NasCodeGraph $version ($target)..."
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
-curl -fsSL "$url" -o "$tmp/cg.tar.gz" || { echo "nascodegraph: download failed: $url" >&2; exit 1; }
 
-dest="$INSTALL_DIR/versions/$version"
-rm -rf "$dest"
-mkdir -p "$dest"
-# Archives contain a top-level nascodegraph-<target>/ dir; strip it.
-tar -xzf "$tmp/cg.tar.gz" -C "$dest" --strip-components=1
+if curl -fsSL "$url" -o "$tmp/cg.tar.gz" 2>/dev/null; then
+  dest="$INSTALL_DIR/versions/$version"
+  rm -rf "$dest"
+  mkdir -p "$dest"
+  tar -xzf "$tmp/cg.tar.gz" -C "$dest" --strip-components 1
+  mkdir -p "$BIN_DIR"
+  ln -sf "$dest/bin/nascodegraph" "$BIN_DIR/nascodegraph"
+  ln -sfn "$dest" "$INSTALL_DIR/current"
+  echo "Installed to $dest"
+  echo "Linked     $BIN_DIR/nascodegraph"
+else
+  echo "No prebuilt binary for $target — falling back to npm..."
+  if ! command -v npm >/dev/null 2>&1; then
+    echo "nascodegraph: npm not found. Install Node.js first: https://nodejs.org" >&2
+    exit 1
+  fi
+  npm install -g @nastechai/nascodegraph@"$version" || npm install -g @nastechai/nascodegraph
+  echo "Installed via npm."
+fi
 
-# 4. Symlink the launcher onto PATH and mark the current version.
-mkdir -p "$BIN_DIR"
-ln -sf "$dest/bin/nascodegraph" "$BIN_DIR/nascodegraph"
-ln -sfn "$dest" "$INSTALL_DIR/current"
-
-echo "Installed to $dest"
-echo "Linked     $BIN_DIR/nascodegraph"
 case ":$PATH:" in
   *":$BIN_DIR:"*) ;;
   *)
