@@ -1,0 +1,606 @@
+"use strict";
+/**
+ * Directory Management
+ *
+ * Manages the .nascodegraph/ directory structure for NasCodeGraph data.
+ */
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.NASTECHGRAPH_DIR = void 0;
+exports.codeGraphDirName = codeGraphDirName;
+exports.isNasCodeGraphDataDir = isNasCodeGraphDataDir;
+exports.getNasCodeGraphDir = getNasCodeGraphDir;
+exports.isInitialized = isInitialized;
+exports.unsafeIndexRootReason = unsafeIndexRootReason;
+exports.findNearestNasCodeGraphRoot = findNearestNasCodeGraphRoot;
+exports.findIndexedSubprojectRoots = findIndexedSubprojectRoots;
+exports.hasStructuralKeyword = hasStructuralKeyword;
+exports.extractCodeTokens = extractCodeTokens;
+exports.isStructuralPrompt = isStructuralPrompt;
+exports.planFrontload = planFrontload;
+exports.createDirectory = createDirectory;
+exports.removeDirectory = removeDirectory;
+exports.listDirectoryContents = listDirectoryContents;
+exports.getDirectorySize = getDirectorySize;
+exports.ensureSubdirectory = ensureSubdirectory;
+exports.validateDirectory = validateDirectory;
+const fs = __importStar(require("fs"));
+const os = __importStar(require("os"));
+const path = __importStar(require("path"));
+/** The default per-project data directory name. */
+const DEFAULT_NASTECHGRAPH_DIR = '.nascodegraph';
+let warnedBadDirName = false;
+/**
+ * Resolve the per-project data directory name, honoring the `NASTECHGRAPH_DIR`
+ * environment override (default `.nascodegraph`). The override is a single path
+ * segment that lives in the project root.
+ *
+ * Why this exists: two environments that share one working tree must NOT share
+ * one `.nascodegraph/` — most concretely Windows-native and WSL (issue #636). The
+ * daemon lockfile (`.nascodegraph/daemon.pid`) records a platform-specific pid and
+ * socket path (a Windows named pipe vs a WSL Unix socket), and SQLite file
+ * locking across the WSL2 ↔ Windows filesystem boundary is unreliable, so two
+ * daemons sharing one index risks corruption. Setting `NASTECHGRAPH_DIR=.nascodegraph-win`
+ * on one side gives each environment its own index in the same tree.
+ *
+ * Read live (not captured at load) so it is both process-accurate and testable.
+ * An override that isn't a plain directory name — empty, containing a path
+ * separator, `.`, `..`/traversal, or absolute — is ignored (we keep the
+ * default) rather than risk writing the index outside the project or into the
+ * project root itself; we warn once to stderr so the misconfiguration is seen.
+ */
+function codeGraphDirName() {
+    const raw = process.env.NASTECHGRAPH_DIR?.trim();
+    if (!raw)
+        return DEFAULT_NASTECHGRAPH_DIR;
+    const invalid = raw === '.' ||
+        raw.includes('..') ||
+        raw.includes('/') ||
+        raw.includes('\\') ||
+        path.isAbsolute(raw);
+    if (invalid) {
+        if (!warnedBadDirName) {
+            warnedBadDirName = true;
+            // stderr only — stdout is the MCP protocol channel.
+            console.warn(`[nascodegraph] Ignoring invalid NASTECHGRAPH_DIR="${raw}" — it must be a plain ` +
+                `directory name (no path separators, no "..", not absolute). Using "${DEFAULT_NASTECHGRAPH_DIR}".`);
+        }
+        return DEFAULT_NASTECHGRAPH_DIR;
+    }
+    return raw;
+}
+/**
+ * NasCodeGraph directory name — a load-time snapshot of {@link codeGraphDirName}.
+ * A running process's environment is fixed, so this equals the live value;
+ * it's kept as a stable string export for backward compatibility. Internal code
+ * resolves the name through {@link codeGraphDirName} / {@link getNasCodeGraphDir}
+ * so the `NASTECHGRAPH_DIR` override always applies.
+ */
+exports.NASTECHGRAPH_DIR = codeGraphDirName();
+/**
+ * Is `name` (a single path segment) a NasCodeGraph data directory? Matches the
+ * default `.nascodegraph`, the active `NASTECHGRAPH_DIR` override, and any
+ * `.nascodegraph-*` sibling. File-watching and the indexer skip ALL of these, so
+ * when two environments share one working tree (Windows + WSL, issue #636)
+ * neither indexes or watches the other's index directory.
+ */
+function isNasCodeGraphDataDir(name) {
+    return (name === DEFAULT_NASTECHGRAPH_DIR ||
+        name === codeGraphDirName() ||
+        name.startsWith(DEFAULT_NASTECHGRAPH_DIR + '-'));
+}
+/**
+ * Get the .nascodegraph directory path for a project
+ */
+function getNasCodeGraphDir(projectRoot) {
+    return path.join(projectRoot, codeGraphDirName());
+}
+/**
+ * Check if a project has been initialized with NasCodeGraph
+ * Requires both .nascodegraph/ directory AND nascodegraph.db to exist
+ */
+function isInitialized(projectRoot) {
+    const nascodegraphDir = getNasCodeGraphDir(projectRoot);
+    if (!fs.existsSync(nascodegraphDir) || !fs.statSync(nascodegraphDir).isDirectory()) {
+        return false;
+    }
+    // Must have nascodegraph.db, not just .nascodegraph folder
+    const dbPath = path.join(nascodegraphDir, 'nascodegraph.db');
+    return fs.existsSync(dbPath);
+}
+/**
+ * Find the nearest parent directory containing .nascodegraph/
+ *
+ * Walks up from the given path to find a NasCodeGraph-initialized project,
+ * similar to how git finds .git/ directories.
+ *
+ * @param startPath - Directory to start searching from
+ * @returns The project root containing .nascodegraph/, or null if not found
+ */
+/**
+ * Reason a directory is unsafe to use as an index ROOT, or null when it's fine.
+ *
+ * Indexing your home directory or a filesystem root drags in caches, `Library`,
+ * every other project, etc. — a multi-GB index, constant file-watcher churn, and
+ * (pre-1.0 on macOS) a file-descriptor blowup that exhausted `kern.maxfiles` and
+ * took unrelated apps / the whole machine down (#845). The classic trigger:
+ * running the installer or `nascodegraph init` from `$HOME`, which auto-indexes the
+ * current directory. These are never intended project roots, so the installer
+ * and `init`/`index` refuse them (overridable with `--force`).
+ *
+ * Pure-ish (reads only `os.homedir()` + realpath) so it's easy to unit-test.
+ * The returned string is a human phrase that slots into "… looks like {reason}".
+ */
+function unsafeIndexRootReason(projectRoot) {
+    const resolve = (p) => {
+        try {
+            return fs.realpathSync(path.resolve(p));
+        }
+        catch {
+            return path.resolve(p);
+        }
+    };
+    const resolved = resolve(projectRoot);
+    // Filesystem root: `/` on POSIX, a drive root like `C:\` on Windows.
+    if (path.parse(resolved).root === resolved) {
+        return 'the filesystem root';
+    }
+    const home = resolve(os.homedir());
+    // Case-insensitive on macOS/Windows (case-preserving but case-insensitive FS).
+    const norm = (p) => process.platform === 'darwin' || process.platform === 'win32' ? p.toLowerCase() : p;
+    const r = norm(resolved);
+    const h = norm(home);
+    if (r === h) {
+        return 'your home directory';
+    }
+    // An ancestor of home (e.g. `/Users`, `/home`) — even broader than home.
+    if (h.startsWith(r + path.sep)) {
+        return 'a parent of your home directory';
+    }
+    return null;
+}
+function findNearestNasCodeGraphRoot(startPath) {
+    let current = path.resolve(startPath);
+    const root = path.parse(current).root;
+    while (current !== root) {
+        if (isInitialized(current)) {
+            return current;
+        }
+        const parent = path.dirname(current);
+        if (parent === current)
+            break; // Reached filesystem root
+        current = parent;
+    }
+    // Check root as well
+    if (isInitialized(current)) {
+        return current;
+    }
+    return null;
+}
+/** Heavy/irrelevant directory names the sub-project scan never descends into. */
+const SUBPROJECT_SCAN_SKIP = new Set([
+    'node_modules', '.git', '.svn', '.hg', 'dist', 'build', 'out', 'target',
+    'vendor', 'bin', 'obj', '.next', '.nuxt', '.svelte-kit', '.cache', 'coverage',
+    '.venv', 'venv', '__pycache__', '.turbo', '.idea', '.vscode', 'tmp', 'temp',
+]);
+/** Manifests that mark a directory as a project/workspace root. The down-scan
+ *  is gated on one of these so a non-project cwd (e.g. `$HOME`) is a cheap
+ *  no-op instead of a deep filesystem crawl. */
+const WORKSPACE_ROOT_MANIFESTS = [
+    'package.json', 'pnpm-workspace.yaml', 'lerna.json', 'nx.json', 'turbo.json',
+    'go.work', 'go.mod', 'Cargo.toml', 'pom.xml', 'build.gradle', 'build.gradle.kts',
+    'settings.gradle', 'pyproject.toml', 'composer.json', 'Gemfile', 'rush.json',
+    'WORKSPACE', 'WORKSPACE.bazel',
+];
+function looksLikeProjectRoot(dir) {
+    return WORKSPACE_ROOT_MANIFESTS.some((m) => fs.existsSync(path.join(dir, m)));
+}
+function escapeRegExp(s) {
+    return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+/**
+ * Indexed sub-project roots beneath `root` (bounded breadth-first scan). For
+ * the monorepo case behind #964: the index lives in a CHILD
+ * (`packages/x/.nascodegraph/`), not at the workspace root the agent's cwd points
+ * at. Descent stops at the first indexed directory on a branch (a project's
+ * own sub-dirs aren't separate projects) and is bounded by depth + count so it
+ * never turns into a full-tree crawl on a large repo.
+ */
+function findIndexedSubprojectRoots(root, opts = {}) {
+    const maxDepth = opts.maxDepth ?? 4;
+    const max = opts.max ?? 64;
+    const out = [];
+    const walk = (dir, depth) => {
+        if (out.length >= max || depth > maxDepth)
+            return;
+        let entries;
+        try {
+            entries = fs.readdirSync(dir, { withFileTypes: true });
+        }
+        catch {
+            return;
+        }
+        for (const e of entries) {
+            if (out.length >= max)
+                return;
+            if (!e.isDirectory())
+                continue;
+            if (e.name.startsWith('.') || SUBPROJECT_SCAN_SKIP.has(e.name))
+                continue;
+            const child = path.join(dir, e.name);
+            if (isInitialized(child)) {
+                out.push(child);
+                continue;
+            } // don't descend into an indexed project
+            walk(child, depth + 1);
+        }
+    };
+    walk(root, 1);
+    return out;
+}
+/**
+ * English structural keywords, matched with `\b` word boundaries so a keyword
+ * inside a longer word doesn't false-positive ("flow" in "flower").
+ */
+const STRUCTURAL_EN = /\b(how|where|trace|flow|path|reach(?:es|ed)?|call(?:s|ed|er|ers|ee)?|depend|impact|affect|wired?|connect|implement|architect|structure|breaks?|what calls|why does)\b/i;
+/**
+ * Non-English (CJK) structural keywords, matched WITHOUT `\b`. JS's `\b` is
+ * ASCII-only — it only fires at `[A-Za-z0-9_]` boundaries, never between Han
+ * characters — so a Chinese keyword wrapped in `\b…\b` could never match. That
+ * was issue #994: the English-only gate silently no-op'd every Chinese prompt,
+ * so non-English users got no front-load nudge and no error to explain why. The
+ * set mirrors the English intent (如何=how, 在哪/哪里=where, 流程/流向=flow,
+ * 路径=path, 调用=call, 依赖=depend, 影响=impact/affect, 实现=implement,
+ * 架构=architect, 结构=structure, 追踪/跟踪=trace) plus structural-overview words
+ * with no single clean English equivalent (介绍/解析/分析/原理/机制).
+ */
+const STRUCTURAL_CJK = /如何|怎么|在哪|哪里|追踪|跟踪|流程|流向|路径|调用|依赖|影响|实现|架构|结构|介绍|解析|分析|原理|机制/;
+/** Doc/data/asset file extensions — a `name.ext` of this kind is a file
+ *  reference, not a code symbol, so it must not trip the member-access signal. */
+const DOC_DATA_EXT = /\.(md|markdown|txt|rst|json|ya?ml|toml|lock|csv|tsv|log|ini|cfg|conf|env|xml|html?|png|jpe?g|gif|svg|pdf)$/i;
+/**
+ * Does `prompt` contain an explicit structural keyword (English or CJK)? A
+ * keyword is a strong, self-contained signal, so the front-load hook fires on it
+ * directly — no graph check needed. (A *code-token* match, by contrast, is only
+ * a candidate the hook verifies against the graph first; see {@link extractCodeTokens}.)
+ */
+function hasStructuralKeyword(prompt) {
+    return !!prompt && (STRUCTURAL_EN.test(prompt) || STRUCTURAL_CJK.test(prompt));
+}
+/**
+ * Identifier-shaped tokens in `prompt` — camelCase / PascalCase-with-inner-cap,
+ * snake_case, a `name(` call, or the two sides of an `a.b` member access. Naming
+ * a symbol is a code question whatever the surrounding human language, and these
+ * shapes almost never occur in ordinary prose, so they catch the common
+ * "<symbol> 的调用链?" / "where is <symbol> 定義" prompts no keyword list would.
+ *
+ * These are *candidates*, not a verdict: a tech brand like `JavaScript` or
+ * `GitHub` is identifier-shaped too, so the front-load hook checks each token
+ * against the actual index ({@link getNodesByName}) and only fires when one is a
+ * real symbol here — otherwise a brand-name prompt would inject ~16KB of
+ * low-relevance context (issue #994 follow-up). A doc/data filename ("README.md")
+ * is excluded from the member-access form since it's a file reference, not a symbol.
+ */
+function extractCodeTokens(prompt) {
+    if (!prompt)
+        return [];
+    const out = new Set();
+    // camelCase / PascalCase-with-inner-cap (getUserId, parseToken, UserService) or
+    // snake_case (article_publish, get_user) — a whole identifier run that has an
+    // inner lower→upper transition or an underscore flanked by alphanumerics.
+    for (const m of prompt.matchAll(/[A-Za-z_$][\w$]*/g)) {
+        const w = m[0];
+        if (/[a-z][A-Z]/.test(w) || /[A-Za-z0-9]_[A-Za-z0-9]/.test(w))
+            out.add(w);
+    }
+    // call form: an identifier directly before '(' — parseToken(, render(). No
+    // whitespace before '(' so prose like "the function (entry point)" doesn't trip it.
+    for (const m of prompt.matchAll(/([A-Za-z_$][\w$]*)\(/g))
+        out.add(m[1]);
+    // member access on identifiers (user.login) — but not a doc/data filename.
+    for (const m of prompt.matchAll(/([A-Za-z_$][\w$]*)\.([A-Za-z_$][\w$]*)/g)) {
+        if (!DOC_DATA_EXT.test(m[0])) {
+            out.add(m[1]);
+            out.add(m[2]);
+        }
+    }
+    return [...out];
+}
+/**
+ * Cheap, graph-free candidate gate for the front-load hook: could `prompt` be a
+ * structural / flow / impact / "where-how" question worth front-loading context
+ * for? True on an explicit keyword (English or CJK, issue #994) OR an
+ * identifier-shaped token. A keyword is sufficient to fire on its own; a
+ * token-only match is only a candidate the hook then verifies against the graph
+ * (a brand name like `JavaScript` is token-shaped but isn't a symbol). Every
+ * non-candidate prompt ("fix this typo", in any language) stays a zero-cost no-op.
+ */
+function isStructuralPrompt(prompt) {
+    return hasStructuralKeyword(prompt) || extractCodeTokens(prompt).length > 0;
+}
+/**
+ * Decide what the front-load hook injects for a `prompt` issued from `cwd`,
+ * shaped by where the `.nascodegraph/` index(es) actually are:
+ *   1. **cwd (or an ancestor) is indexed** → front-load that project. The
+ *      normal single-project / nested-file case.
+ *   2. **cwd isn't indexed but looks like a workspace root** → the indexes live
+ *      in sub-projects (the monorepo case behind #964). One indexed
+ *      sub-project → front-load it; several → front-load the one the prompt
+ *      names (by relative path like `packages/api`, or package directory name)
+ *      and nudge about the rest; several with no match → nudge the full list so
+ *      the agent passes `projectPath`, rather than guessing wrong.
+ *   3. **nothing indexed reachable** → do nothing (the agent's own tools apply).
+ */
+function planFrontload(cwd, prompt) {
+    const none = { exploreRoot: null, nudgeProjects: [], viaSubScan: false };
+    // 1. up-walk — nearest indexed ancestor (incl. cwd). Cheap; covers the common
+    //    single-project case without a down-scan.
+    let dir = path.resolve(cwd);
+    for (let i = 0; i < 6; i++) {
+        if (isInitialized(dir))
+            return { exploreRoot: dir, nudgeProjects: [], viaSubScan: false };
+        const parent = path.dirname(dir);
+        if (parent === dir)
+            break;
+        dir = parent;
+    }
+    // 2. down-scan — only from something that looks like a workspace root, so a
+    //    non-project cwd (e.g. $HOME) is a cheap no-op, not a deep crawl.
+    const base = path.resolve(cwd);
+    if (!looksLikeProjectRoot(base))
+        return none;
+    const subs = findIndexedSubprojectRoots(base);
+    if (subs.length === 0)
+        return none;
+    if (subs.length === 1)
+        return { exploreRoot: subs[0], nudgeProjects: [], viaSubScan: true };
+    // Several indexed sub-projects — pick the one the prompt points at, if any.
+    const p = prompt.toLowerCase();
+    let best = null;
+    for (const s of subs) {
+        const rel = path.relative(base, s);
+        const relLc = rel.split(path.sep).join('/').toLowerCase();
+        const name = path.basename(s).toLowerCase();
+        let score = 0;
+        if (relLc && p.includes(relLc))
+            score = 10; // "packages/api"
+        else if (name.length >= 3 && new RegExp(`\\b${escapeRegExp(name)}\\b`).test(p))
+            score = 5; // "api"
+        if (score > 0 && (!best || score > best.score || (score === best.score && rel.length < best.relLen))) {
+            best = { root: s, score, relLen: rel.length };
+        }
+    }
+    if (best) {
+        return { exploreRoot: best.root, nudgeProjects: subs.filter((s) => s !== best.root), viaSubScan: true };
+    }
+    // No clear match — nudge the full list rather than front-load a guess.
+    return { exploreRoot: null, nudgeProjects: subs, viaSubScan: true };
+}
+/**
+ * Contents of `.nascodegraph/.gitignore`. A single wildcard ignore keeps every
+ * transient file in the index dir — the database, `daemon.pid`, the socket,
+ * logs, cache, and anything future versions add — out of git, without having
+ * to enumerate each name (issues #788, #492, #484). Older versions wrote an
+ * explicit allowlist that never listed `daemon.pid` or the socket, so those
+ * runtime files were silently committed.
+ */
+const GITIGNORE_CONTENT = `# NasCodeGraph data files — local to each machine, not for committing.
+# Ignore everything in .nascodegraph/ except this file itself, so transient
+# files (the database, daemon.pid, sockets, logs) never show up in git.
+*
+!.gitignore
+`;
+/** Header line that prefixes every .gitignore NasCodeGraph has auto-generated. */
+const GITIGNORE_MARKER = '# NasCodeGraph data files';
+/**
+ * Is `content` a stale NasCodeGraph-generated `.gitignore` that should be
+ * regenerated in place? True when it carries our header but predates the
+ * wildcard ignore (it has no bare `*` line) — i.e. one of the old explicit
+ * allowlists (`*.db`, `cache/`, `.dirty`, …) that never ignored `daemon.pid`
+ * or the socket (issue #788). A file WITHOUT our header is user-authored and
+ * is left untouched; one that already has the wildcard is current. Matching
+ * on the header (not a byte-exact list of past defaults) heals every old
+ * variant — v0.7.x through 0.9.9 — and is idempotent once upgraded.
+ */
+function isStaleDefaultGitignore(content) {
+    if (!content.trimStart().startsWith(GITIGNORE_MARKER))
+        return false;
+    return !content.split('\n').some((line) => line.trim() === '*');
+}
+/**
+ * Write `.nascodegraph/.gitignore` if it's absent, or upgrade a stale
+ * NasCodeGraph-generated default in place; a user-customized file is left alone.
+ * Best-effort — returns `false` only if a needed write failed.
+ */
+function ensureGitignore(gitignorePath) {
+    let existing;
+    try {
+        existing = fs.readFileSync(gitignorePath, 'utf-8');
+    }
+    catch {
+        existing = null; // absent (ENOENT) or unreadable — (re)create below
+    }
+    // Current default or a user-authored file: nothing to do.
+    if (existing !== null && !isStaleDefaultGitignore(existing))
+        return true;
+    try {
+        fs.writeFileSync(gitignorePath, GITIGNORE_CONTENT, 'utf-8');
+        return true;
+    }
+    catch {
+        return false;
+    }
+}
+/**
+ * Create the .nascodegraph directory structure
+ * Note: Only throws if nascodegraph.db already exists, not just if .nascodegraph/ exists.
+ */
+function createDirectory(projectRoot) {
+    const nascodegraphDir = getNasCodeGraphDir(projectRoot);
+    const dbPath = path.join(nascodegraphDir, 'nascodegraph.db');
+    // Only throw if NasCodeGraph is actually initialized (db exists)
+    // .nascodegraph/ folder alone is fine
+    if (fs.existsSync(dbPath)) {
+        throw new Error(`NasCodeGraph already initialized in ${projectRoot}`);
+    }
+    // Create main directory (if it doesn't exist)
+    fs.mkdirSync(nascodegraphDir, { recursive: true });
+    // Write .gitignore inside .nascodegraph (create if absent, upgrade a stale
+    // pre-wildcard default left by an older version — issue #788).
+    ensureGitignore(path.join(nascodegraphDir, '.gitignore'));
+}
+/**
+ * Remove the .nascodegraph directory
+ */
+function removeDirectory(projectRoot) {
+    const nascodegraphDir = getNasCodeGraphDir(projectRoot);
+    if (!fs.existsSync(nascodegraphDir)) {
+        return;
+    }
+    // Verify .nascodegraph is a real directory, not a symlink pointing elsewhere
+    const lstat = fs.lstatSync(nascodegraphDir);
+    if (lstat.isSymbolicLink()) {
+        // Only remove the symlink itself, never follow it for recursive delete
+        fs.unlinkSync(nascodegraphDir);
+        return;
+    }
+    if (!lstat.isDirectory()) {
+        // Not a directory - remove the single file
+        fs.unlinkSync(nascodegraphDir);
+        return;
+    }
+    // Recursively remove directory
+    fs.rmSync(nascodegraphDir, { recursive: true, force: true });
+}
+/**
+ * Get all files in the .nascodegraph directory
+ */
+function listDirectoryContents(projectRoot) {
+    const nascodegraphDir = getNasCodeGraphDir(projectRoot);
+    if (!fs.existsSync(nascodegraphDir)) {
+        return [];
+    }
+    const files = [];
+    function walkDir(dir, prefix = '') {
+        const entries = fs.readdirSync(dir, { withFileTypes: true });
+        for (const entry of entries) {
+            const relativePath = prefix ? `${prefix}/${entry.name}` : entry.name;
+            // Skip symlinks to prevent following links outside .nascodegraph
+            if (entry.isSymbolicLink()) {
+                continue;
+            }
+            if (entry.isDirectory()) {
+                walkDir(path.join(dir, entry.name), relativePath);
+            }
+            else {
+                files.push(relativePath);
+            }
+        }
+    }
+    walkDir(nascodegraphDir);
+    return files;
+}
+/**
+ * Get the total size of the .nascodegraph directory in bytes
+ */
+function getDirectorySize(projectRoot) {
+    const nascodegraphDir = getNasCodeGraphDir(projectRoot);
+    if (!fs.existsSync(nascodegraphDir)) {
+        return 0;
+    }
+    let totalSize = 0;
+    function walkDir(dir) {
+        const entries = fs.readdirSync(dir, { withFileTypes: true });
+        for (const entry of entries) {
+            // Skip symlinks to prevent following links outside .nascodegraph
+            if (entry.isSymbolicLink()) {
+                continue;
+            }
+            const fullPath = path.join(dir, entry.name);
+            if (entry.isDirectory()) {
+                walkDir(fullPath);
+            }
+            else {
+                const stats = fs.statSync(fullPath);
+                totalSize += stats.size;
+            }
+        }
+    }
+    walkDir(nascodegraphDir);
+    return totalSize;
+}
+/**
+ * Ensure a subdirectory exists within .nascodegraph
+ */
+function ensureSubdirectory(projectRoot, subdirName) {
+    if (subdirName.includes('..') || subdirName.includes(path.sep) || subdirName.includes('/')) {
+        throw new Error(`Invalid subdirectory name: ${subdirName}`);
+    }
+    const subdirPath = path.join(getNasCodeGraphDir(projectRoot), subdirName);
+    if (!fs.existsSync(subdirPath)) {
+        fs.mkdirSync(subdirPath, { recursive: true });
+    }
+    return subdirPath;
+}
+/**
+ * Check if the .nascodegraph directory has valid structure
+ */
+function validateDirectory(projectRoot) {
+    const errors = [];
+    const nascodegraphDir = getNasCodeGraphDir(projectRoot);
+    if (!fs.existsSync(nascodegraphDir)) {
+        errors.push('NasCodeGraph directory does not exist');
+        return { valid: false, errors };
+    }
+    if (!fs.statSync(nascodegraphDir).isDirectory()) {
+        errors.push('.nascodegraph exists but is not a directory');
+        return { valid: false, errors };
+    }
+    // Auto-repair / upgrade .gitignore (non-critical file). A missing one is
+    // recreated; a stale pre-wildcard default that never ignored daemon.pid is
+    // regenerated in place (issue #788); a user-authored file is left alone.
+    const gitignorePath = path.join(nascodegraphDir, '.gitignore');
+    const existedBefore = fs.existsSync(gitignorePath);
+    if (!ensureGitignore(gitignorePath) && !existedBefore) {
+        // Only a missing-and-uncreatable file is surfaced; a failed in-place
+        // upgrade of an existing file is non-fatal — the index still works.
+        errors.push('.gitignore missing in .nascodegraph directory and could not be created');
+    }
+    return {
+        valid: errors.length === 0,
+        errors,
+    };
+}
+//# sourceMappingURL=directory.js.map
