@@ -43,23 +43,14 @@ case "$arch" in
 esac
 target="${os}-${arch}"
 
-# 2. Resolve the version (latest release unless pinned).
+# 2. Resolve the version (latest from npm unless pinned).
 #
-# Resolve "latest" from the releases/latest *web* redirect, not the GitHub API:
-# the unauthenticated API is rate-limited to 60 requests/hour per IP and returns
-# 403 once exhausted — routine on shared/cloud hosts and CI (issue #325). The
-# redirect (github.com/<repo>/releases/latest -> .../releases/tag/vX.Y.Z) has no
-# such limit. Fall back to the API if the redirect can't be read.
+# Resolve "latest" from npm — works without auth, no rate limits.
 version="${NASTECHGRAPH_VERSION:-}"
 if [ -z "$version" ]; then
-  version="$(curl -fsSLI -o /dev/null -w '%{url_effective}' "https://github.com/$REPO/releases/latest" \
-    | sed -n 's#.*/releases/tag/##p')"
+  version="$(npm view @nastechai/nascodegraph version 2>/dev/null)"
 fi
-if [ -z "$version" ]; then
-  version="$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" \
-    | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n1)"
-fi
-[ -n "$version" ] || { echo "nascodegraph: could not resolve latest version; set NASTECHGRAPH_VERSION (e.g. NASTECHGRAPH_VERSION=v0.9.4)." >&2; exit 1; }
+[ -n "$version" ] || { echo "nascodegraph: could not resolve latest version; set NASTECHGRAPH_VERSION." >&2; exit 1; }
 # Release tags are vX.Y.Z; accept a bare X.Y.Z in NASTECHGRAPH_VERSION too.
 case "$version" in v*) ;; *) version="v$version" ;; esac
 
